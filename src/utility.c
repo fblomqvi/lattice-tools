@@ -196,7 +196,7 @@ gsl_matrix *generate_basis(gsl_matrix *H, int q) {
 /* Calculates the value of µ = <v,u>/||u||^2 used in calculating the projection
  * of v onto u.
  */
-double calc_mu (gsl_vector *v, gsl_vector *u) {
+double calc_mu (const gsl_vector *v, const gsl_vector *u) {
     double inner_product, u_length_squared, mu;
     gsl_blas_ddot(v, u, &inner_product);    // Sets inner_product = <v,u>.
     gsl_blas_ddot(u, u, &u_length_squared); // Sets u_length_squared = <u,u> = ||u||^2.
@@ -207,7 +207,7 @@ double calc_mu (gsl_vector *v, gsl_vector *u) {
 /* Allocates memory for and returns the vector that is the projection of v onto u: 
  * projection(gsl_vector *v, gsl_vector *u) = µ*u = <v,u>/||u||^2 * u
  */
-gsl_vector *projection(gsl_vector *v, gsl_vector *u) {
+gsl_vector *projection(const gsl_vector *v, const gsl_vector *u) {
     assert(v->size == u->size);
     double mu = calc_mu(v, u);
     gsl_vector *res = clone_vector(u);
@@ -228,12 +228,12 @@ gsl_matrix *gram_schmidt(const gsl_matrix *B) {
         /* Initialize new vector v and copy i:th column of input
          * matrix B to vector v.
          */
-        gsl_vector_view b = gsl_matrix_column(B, i);
+        gsl_vector_const_view b = gsl_matrix_const_column(B, i);
         gsl_vector *v = clone_vector(&b.vector);
         
         for (size_t j = 0; j < i; j++) {
             // u is the j:th already calculated orthogonal basis vector.
-            gsl_vector_view u = gsl_matrix_column(res, j);
+            gsl_vector_const_view u = gsl_matrix_const_column(res, j);
             if (!gsl_vector_isnull(&u.vector)) {
                 // Calculate the projection of v onto u.
                 gsl_vector *proj_v_to_u = projection(v, &u.vector);

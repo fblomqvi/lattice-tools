@@ -14,8 +14,8 @@ gsl_vector *read_vector(FILE *f);
 
 gsl_vector *clone_vector(const gsl_vector *v);
 
-double calc_mu (gsl_vector *v, gsl_vector *u);
-gsl_vector *projection(gsl_vector *v, gsl_vector *u);
+double calc_mu (const gsl_vector *v, const gsl_vector *u);
+gsl_vector *projection(const gsl_vector *v, const gsl_vector *u);
 gsl_matrix *gram_schmidt(const gsl_matrix *B);
 
 gsl_matrix *generate_basis(gsl_matrix *H, int q);
