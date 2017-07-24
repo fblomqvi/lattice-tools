@@ -240,6 +240,7 @@ static int parse_basis_init_ws(OPT* opt)
             break;
         case ALG_DPLANE:
             opt->solve = doubleplane_g;
+            opt->ws = DP_WS_alloc_and_init(opt->basis);
             break;
         case ALG_SPHERE:
             opt->solve = spheredecode_g;
@@ -264,6 +265,7 @@ static void free_basis_and_ws(OPT* opt)
             BABAI_WS_free(opt->ws);
             break;
         case ALG_DPLANE:
+            DP_WS_free(opt->ws);
             break;
         case ALG_SPHERE:
             SD_WS_free(opt->ws);
@@ -351,7 +353,7 @@ int main(int argc, char* argv[])
     }
 
     int rc = solve(outfile, &opt);
-    llibcheck(rc == 0, error_a, "solve failed");
+    llibcheck(rc == 0, error_a, "generate_* failed");
     ret = EXIT_SUCCESS;
 
 error_a:
