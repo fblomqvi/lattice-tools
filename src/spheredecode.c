@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
+#include "babai.h"
 #include "spheredecode.h"
 #include "utility.h"
 #include <gsl/gsl_blas.h>
@@ -8,8 +9,7 @@
 /*NOTE: n is used to denote the amount of rows of the basis matrix B and m for
  *      columns. This notation was chosen in order to be consistent with
  *      the documentation and it is the OPPOSITE of how gsl uses them
- *      (in error messages, for example).
- */
+ *      (in error messages, for example). */
 
 SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
 {
@@ -18,7 +18,7 @@ SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
     int n = B->size1;
     int m = B->size2;
     assert(n >= m);
-    assert(t->size == n);
+    //assert(t->size == n);
     
     SD_WS* ws = malloc(sizeof(SD_WS));
 
@@ -43,6 +43,8 @@ SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
     ws->yhat = malloc(m * sizeof(double));
     ws->Rs = gsl_vector_alloc(m);
     ws->Rbest_s = gsl_vector_alloc(m);
+    ws->babai_clp = gsl_vector_alloc(n);
+    ws->babai_ws = BABAI_WS_alloc_and_init(B);
 
     /* Tau is a vector used only for the gsl QR decomposition function.
      * The size of tau must be min of n,m; this is always m for now.*/
@@ -84,6 +86,8 @@ void SD_WS_free(SD_WS *ws)
         free(ws->yhat);
         gsl_vector_free(ws->Rs);
         gsl_vector_free(ws->Rbest_s);
+        gsl_vector_free(ws->babai_clp);
+        BABAI_WS_free(ws->babai_ws);
         free(ws);
     }
 }
@@ -169,7 +173,7 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, dou
     if (ws->d2[k] < 0) {
         // If B is not a square matrix, it is possible for the initial distance
         // requirement to be negative. In this case, terminate.
-        fprintf(stderr, "Initial radius too small. Terminating.\n");
+        fprintf(stderr, "Initial radius too small. Terminating. (d = %f, d2_k = %f)\n", d, ws->d2[k]);
         //res = NULL;
     } else {
         while (k < m) {
@@ -235,16 +239,21 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, dou
          * of min(||t-B*s||) and store it to res. 
          */
         gsl_blas_dgemv(CblasNoTrans, 1, B, ws->best_s, 0, clp);
-        /*
-        printf("Sphere decoder found %d solution", solutions);
-        if (solutions != 1) printf("s");
-        printf(" within d=%f.\n", d);
-        */
     }
 }
 
 void spheredecode_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
 { 
-    double d = 5.0;
-    spheredecode(clp, t, B, d, ws);
+    SD_WS *sd_ws = (SD_WS*) ws;
+    babai_g(sd_ws->babai_clp, t, B, sd_ws->babai_ws);
+    gsl_vector_sub(sd_ws->babai_clp, t);
+    double d = 0;
+    gsl_blas_ddot(sd_ws->babai_clp, sd_ws->babai_clp, &d);
+    d = sqrt(d);
+    if (d == 0) {
+        d = 0.001;
+    } else {
+        d = 1.001*d;
+    }
+    spheredecode(clp, t, B, d, sd_ws);
 }
