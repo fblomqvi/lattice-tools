@@ -20,7 +20,7 @@ DP_WS* DP_WS_alloc_and_init(gsl_matrix *B)
     ws->x2 = malloc(B->size2 * sizeof(gsl_vector *));
     ws->targs = malloc(B->size2 * sizeof(gsl_vector *));
 
-    for (int i = 0; i < B->size2; i++) {
+    for (size_t i = 0; i < B->size2; i++) {
         ws->s1[i] = gsl_vector_alloc(B->size1);
         ws->s2[i] = gsl_vector_alloc(B->size1);
         ws->x1[i] = gsl_vector_alloc(B->size1);
@@ -32,13 +32,13 @@ DP_WS* DP_WS_alloc_and_init(gsl_matrix *B)
 
 void DP_WS_free(DP_WS *ws) {
     if (ws) {
-        int m = ws->W->size2;
+        size_t m = ws->W->size2;
         gsl_matrix_free(ws->W);
         gsl_vector_free(ws->w);
         gsl_vector_free(ws->b);
         gsl_vector_free(ws->tx1);
         gsl_vector_free(ws->tx2);
-        for (int i = 0; i < m; i++) {
+        for (size_t i = 0; i < m; i++) {
             gsl_vector_free(ws->s1[i]);
             gsl_vector_free(ws->s2[i]);
             gsl_vector_free(ws->x1[i]);
@@ -52,7 +52,9 @@ void DP_WS_free(DP_WS *ws) {
 /* Doubleplane helper function. The i argument (which is either 0 or 1) decides whether the result is
  * stored to x1 or x2. If the call is the top level call (i.e. m == B->size2), the result vector
  * is stored to clp. */
-void doubleplane_helper(gsl_vector *clp, const gsl_matrix *B, gsl_vector *t, DP_WS *ws, int m, int i) {    
+void doubleplane_helper(gsl_vector *clp, const gsl_matrix *B, const gsl_vector *t, 
+                        DP_WS *ws, size_t m, int i) 
+{
     // Get the last column vectors of B and W into vectors b and w.
     gsl_matrix_get_col(ws->b, B, m-1);
     gsl_matrix_get_col(ws->w, ws->W, m-1);

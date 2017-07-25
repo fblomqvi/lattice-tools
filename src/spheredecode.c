@@ -18,7 +18,7 @@ SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
     int n = B->size1;
     int m = B->size2;
     assert(n >= m);
-    assert(t->size == n);
+    //assert(t->size == n);
     
     SD_WS* ws = malloc(sizeof(SD_WS));
 
