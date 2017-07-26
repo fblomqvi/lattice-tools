@@ -21,7 +21,7 @@ typedef struct s_dp_ws
 //gsl_vector *doubleplane(gsl_matrix *B, gsl_vector *t);
 DP_WS *DP_WS_alloc_and_init(gsl_matrix *B);
 void DP_WS_free(DP_WS *ws);
-void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_WS *ws);
+void doubleplane(const gsl_matrix* B, const gsl_vector* t, DP_WS* ws, size_t m, int i);
 
 void doubleplane_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws);
 
