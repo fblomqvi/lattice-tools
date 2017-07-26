@@ -51,7 +51,7 @@ void fprintf_result(FILE *res_file, gsl_matrix *B, gsl_vector *t, gsl_vector *re
  * [[1 2] returns 1 2 and [[1 2]  returns 1 3
  * [3 4]]         3 4     [3 4]]T         2 4
  */
-gsl_matrix *read_matrix(FILE *f) {
+gsl_matrix *read_matrix(FILE *f, int transpose) {
     char previous = fgetc(f);
     char current = fgetc(f);
     int entries = 0;
@@ -78,28 +78,37 @@ gsl_matrix *read_matrix(FILE *f) {
         return NULL;
     }
     
-    gsl_matrix *M = gsl_matrix_alloc(rows, cols);
-    
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            double current;
-            while(!fscanf(f, "%lf", &current)) {
-                fseek(f, 1, SEEK_CUR);
+    gsl_matrix* M;
+    if(transpose)
+    {
+        M = gsl_matrix_alloc(cols, rows);
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                double current;
+                while(!fscanf(f, "%lf", &current)) {
+                    fseek(f, 1, SEEK_CUR);
+                }
+                gsl_matrix_set(M, j, i, current);
             }
-            gsl_matrix_set(M, i, j, current);
         }
     }
-    
-    fseek(f, -1, SEEK_END);
-    if (fgetc(f) == 'T') {
-        gsl_matrix *Mt = gsl_matrix_alloc(M->size2, M->size1);
-        gsl_matrix_transpose_memcpy(Mt, M);
-        gsl_matrix_free(M);
-        return Mt;
-    } else {
-        return M;
+    else
+    {
+        M = gsl_matrix_alloc(rows, cols);
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                double current;
+                while(!fscanf(f, "%lf", &current)) {
+                    fseek(f, 1, SEEK_CUR);
+                }
+                gsl_matrix_set(M, i, j, current);
+            }
+        }
     }
-    //fseek(f, 2, SEEK_CUR);
+
+    return M;
 }
 
 /* Create and return a new gsl_vector from file f and return a pointer to it.

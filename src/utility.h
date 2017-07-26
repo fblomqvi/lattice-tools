@@ -9,7 +9,7 @@ void print_matrix(gsl_matrix *A);
 void fprintf_matrix(FILE *f, gsl_matrix *A);
 void fprintf_result(FILE *res_file, gsl_matrix *B, gsl_vector *t, gsl_vector *res);
 
-gsl_matrix *read_matrix(FILE *f);
+gsl_matrix *read_matrix(FILE *f, int transpose);
 gsl_vector *read_vector(FILE *f);
 
 gsl_vector *clone_vector(const gsl_vector *v);
