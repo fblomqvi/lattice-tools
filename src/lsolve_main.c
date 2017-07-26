@@ -290,7 +290,7 @@ static int parse_basis_init_ws(OPT* opt)
     if(opt->mode == MODE_COMPARE)
         init_ws(&opt->solve_cmp, &opt->ws_cmp, opt->alg_cmp, opt->basis);
 
-    print_matrix(opt->basis);
+    //print_matrix(opt->basis);
 
     return 0;
 
