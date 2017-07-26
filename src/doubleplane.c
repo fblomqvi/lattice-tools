@@ -5,7 +5,7 @@
 #include "doubleplane.h"
 
 
-DP_WS* DP_WS_alloc_and_init(gsl_matrix *B)
+DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
 {
     DP_WS *ws = malloc(sizeof(DP_WS));
 
@@ -45,6 +45,11 @@ void DP_WS_free(DP_WS *ws) {
             gsl_vector_free(ws->x2[i]);
             gsl_vector_free(ws->targs[i]);
         }
+        free(ws->s1);
+        free(ws->s2);
+        free(ws->x1);
+        free(ws->x2);
+        free(ws->targs);
         free(ws);
     }
 }
