@@ -5,7 +5,7 @@
 #include "doubleplane.h"
 
 
-DP_WS* DP_WS_alloc_and_init(gsl_matrix *B)
+DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
 {
     DP_WS *ws = malloc(sizeof(DP_WS));
 
