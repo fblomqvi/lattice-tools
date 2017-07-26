@@ -45,6 +45,11 @@ void DP_WS_free(DP_WS *ws) {
             gsl_vector_free(ws->x2[i]);
             gsl_vector_free(ws->targs[i]);
         }
+        free(ws->s1);
+        free(ws->s2);
+        free(ws->x1);
+        free(ws->x2);
+        free(ws->targs);
         free(ws);
     }
 }
