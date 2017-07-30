@@ -333,53 +333,47 @@ static int solve(FILE* outfile, OPT* opt)
     RND_PNT_CONF* conf = get_config_binary(stdin, opt);
     llibcheck(conf, error_a, "get_config_binary failed");
 
-    gsl_vector* cword = gsl_vector_alloc(conf->dimension);
+    double* cword = malloc(2 * conf->dimension * sizeof(double));
     llibcheck_mem(cword, error_b);
 
-    gsl_vector* clp = gsl_vector_alloc(conf->dimension);
-    llibcheck_mem(clp, error_c);
+    double* clp = cword + conf->dimension;
+    gsl_vector_view v_cword = gsl_vector_view_array(cword, conf->dimension);
+    gsl_vector_view v_clp = gsl_vector_view_array(clp, conf->dimension);
 
     if(opt->binary_out)
     {
         while(1)
         {
-            // A dirty hack to comply with existing code
-            int rc = read_cword_binary(cword->data, conf->dimension, sizeof(double));
-            llibcheck(rc == 0, error_d, "read_cword_binary failed");
+            int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
+            llibcheck(rc == 0, error_c, "read_cword_binary failed");
             
-            opt->solve(clp, cword, opt->basis, opt->ws);
-            // A dirty hack to comply with existing code
-            llibcheck(fwrite(clp->data, sizeof(long), conf->dimension, outfile) 
-                    == conf->dimension, error_d, "fwrite failed");
+            opt->solve(&v_clp.vector, &v_cword.vector, opt->basis, opt->ws);
+            llibcheck(fwrite(clp, sizeof(long), conf->dimension, outfile) 
+                    == conf->dimension, error_c, "fwrite failed");
         }
     }
     else
     {
         while(1)
         {
-            // A dirty hack to comply with existing code
-            int rc = read_cword_binary(cword->data, conf->dimension, sizeof(double));
-            llibcheck(rc == 0, error_d, "read_cword_binary failed");
+            int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
+            llibcheck(rc == 0, error_c, "read_cword_binary failed");
             
-            // A dirty hack to comply with existing code
-            rc = print_codeword(outfile, cword->data, conf->dimension);
-            llibcheck(rc == 0, error_d, "print_codeword failed");
+            rc = print_codeword(outfile, cword, conf->dimension);
+            llibcheck(rc == 0, error_c, "print_codeword failed");
 
-            opt->solve(clp, cword, opt->basis, opt->ws);
-            // A dirty hack to comply with existing code
-            rc = print_lattice_point(outfile, clp->data, conf->dimension);
-            llibcheck(rc == 0, error_d, "print_lattice_point failed");
+            opt->solve(&v_clp.vector, &v_cword.vector, opt->basis, opt->ws);
+            rc = print_lattice_point(outfile, clp, conf->dimension);
+            llibcheck(rc == 0, error_c, "print_lattice_point failed");
         }
     }
 
     ret = EXIT_SUCCESS;
 
-error_d:
-    free_basis_and_ws(opt);
 error_c:
-    gsl_vector_free(clp);
+    free_basis_and_ws(opt);
 error_b:
-    gsl_vector_free(cword);
+    free(cword);
 error_a:
     RND_PNT_CONF_free(conf);
 error:
@@ -404,42 +398,37 @@ static int compare(FILE* outfile, OPT* opt)
     RND_PNT_CONF* conf = get_config_binary(stdin, opt);
     llibcheck(conf, error_a, "get_config_binary failed");
 
-    gsl_vector* cword = gsl_vector_alloc(conf->dimension);
+    double* cword = malloc(3 * conf->dimension * sizeof(double));
     llibcheck_mem(cword, error_b);
 
-    gsl_vector* clp1 = gsl_vector_alloc(conf->dimension);
-    llibcheck_mem(clp1, error_c);
-
-    gsl_vector* clp2 = gsl_vector_alloc(conf->dimension);
-    llibcheck_mem(clp2, error_d);
+    double* clp1 = cword + conf->dimension;
+    double* clp2 = clp1 + conf->dimension;
+    gsl_vector_view v_cword = gsl_vector_view_array(cword, conf->dimension);
+    gsl_vector_view v_clp1 = gsl_vector_view_array(clp1, conf->dimension);
+    gsl_vector_view v_clp2 = gsl_vector_view_array(clp2, conf->dimension);
 
     size_t num_checked = 0;
     size_t num_different = 0;
     while(1)
     {
-        // A dirty hack to comply with existing code
-        int rc = read_cword_binary(cword->data, conf->dimension, sizeof(double));
-        llibcheck(rc == 0, error_e, "read_cword_binary failed");
+        int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
+        llibcheck(rc == 0, error_c, "read_cword_binary failed");
 
-        opt->solve(clp1, cword, opt->basis, opt->ws);
-        opt->solve_cmp(clp2, cword, opt->basis, opt->ws_cmp);
-        if(solutions_not_equal(clp1->data, clp2->data, conf->dimension))
+        opt->solve(&v_clp1.vector, &v_cword.vector, opt->basis, opt->ws);
+        opt->solve_cmp(&v_clp2.vector, &v_cword.vector, opt->basis, opt->ws_cmp);
+        if(solutions_not_equal(clp1, clp2, conf->dimension))
             num_different++;
         num_checked++;
     }
 
     ret = EXIT_SUCCESS;
 
-error_e:
+error_c:
     fprintf(outfile, "Compared %zu solutions and found %zu differences\n",
             num_checked, num_different);
     free_basis_and_ws(opt);
-error_d:
-    gsl_vector_free(clp2);
-error_c:
-    gsl_vector_free(clp1);
 error_b:
-    gsl_vector_free(cword);
+    free(cword);
 error_a:
     RND_PNT_CONF_free(conf);
 error:
