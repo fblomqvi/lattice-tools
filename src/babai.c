@@ -8,9 +8,7 @@
 struct s_babai_ws
 {
     gsl_matrix* W;
-    //gsl_vector* b;
     gsl_vector* t;
-    //gsl_vector* w;
 };
 
 BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
