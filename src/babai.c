@@ -3,6 +3,7 @@
 #include <math.h>
 #include <assert.h>
 #include "utility.h"
+#include <gsl/gsl_blas.h>
 
 struct s_babai_ws
 {
@@ -73,22 +74,27 @@ void babai(gsl_vector* clp, const gsl_vector* orig_t, const gsl_matrix* B, BABAI
         /* Set b to be the i:th column of the lattice basis matrix B and
          * w the i:th column of the Gram-Schmidt orthogonalized basis matrix W.
          */
-        gsl_matrix_get_col(ws->b, B, i);
-        gsl_matrix_get_col(ws->w, ws->W, i);
+        gsl_vector_const_view v_b = gsl_matrix_const_column(B, i);
+        gsl_vector_const_view v_w = gsl_matrix_const_column(ws->W, i);
+        //gsl_matrix_get_col(ws->b, B, i);
+        //gsl_matrix_get_col(ws->w, ws->W, i);
         
         // µ = <t,w>/||w||^2 and c is µ rounded to the closest integer.
-        double mu = calc_mu(ws->t,ws->w);
+        double mu = calc_mu(ws->t, &v_w.vector);
         double c = round(mu);
         
         /* Calculate the new target t = t - (µ-c)*w - c*b and add
          * c*b to result: res = res + c*b.
          */
-        gsl_vector_scale(ws->w, mu-c);  //w = (µ-c)*w
-        gsl_vector_scale(ws->b, c);     //b = c*b
-        
-        gsl_vector_sub(ws->t, ws->w);   //t = t - w
-        gsl_vector_sub(ws->t, ws->b);   //t = t - b
-        gsl_vector_add(clp, ws->b); //res = res + b
+        //gsl_vector_scale(ws->w, mu-c);  //w = (µ-c)*w
+        //gsl_vector_sub(ws->t, ws->w);   //t = t - w
+        gsl_blas_daxpy(c - mu, &v_w.vector, ws->t); // t = t - (mu - c) * w
+
+        //gsl_vector_scale(ws->b, c);     //b = c*b
+        //gsl_vector_sub(ws->t, ws->b);   //t = t - b
+        gsl_blas_daxpy(-c, &v_b.vector, ws->t); // t = t - c * b
+        //gsl_vector_add(clp, &v_b.vector); //res = res + b
+        gsl_blas_daxpy(c, &v_b.vector, clp); // t = t - c * b
     }
 }
 
