@@ -3,13 +3,12 @@
 #include <math.h>
 #include <assert.h>
 #include "utility.h"
+#include <gsl/gsl_blas.h>
 
 struct s_babai_ws
 {
     gsl_matrix* W;
-    gsl_vector* b;
     gsl_vector* t;
-    gsl_vector* w;
 };
 
 BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
@@ -21,21 +20,10 @@ BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
     ws->W = gram_schmidt(B);
     llibcheck_mem(ws->W, error_a);
 
-    ws->b = gsl_vector_alloc(B->size1);
-    llibcheck_mem(ws->b, error_b);
-
     ws->t = gsl_vector_alloc(B->size1);
-    llibcheck_mem(ws->t, error_c);
-
-    ws->w = gsl_vector_alloc(B->size1);
-    llibcheck_mem(ws->w, error_d);
-
+    llibcheck_mem(ws->t, error_b);
     return ws;
 
-error_d:
-    gsl_vector_free(ws->t);
-error_c:
-    gsl_vector_free(ws->b);
 error_b:
     gsl_matrix_free(ws->W);
 error_a:
@@ -49,9 +37,7 @@ void BABAI_WS_free(BABAI_WS* ws)
     if(ws)
     {
         gsl_matrix_free(ws->W);
-        gsl_vector_free(ws->b);
         gsl_vector_free(ws->t);
-        gsl_vector_free(ws->w);
         free(ws);
     }
 }
@@ -69,26 +55,22 @@ void babai(gsl_vector* clp, const gsl_vector* orig_t, const gsl_matrix* B, BABAI
     gsl_vector_set_zero(clp);
     gsl_vector_memcpy(ws->t, orig_t);
     
-    for (int i = B->size2-1; i >= 0; i--) {
+    for(int i = B->size2-1; i >= 0; i--)
+    {
         /* Set b to be the i:th column of the lattice basis matrix B and
          * w the i:th column of the Gram-Schmidt orthogonalized basis matrix W.
          */
-        gsl_matrix_get_col(ws->b, B, i);
-        gsl_matrix_get_col(ws->w, ws->W, i);
+        gsl_vector_const_view v_b = gsl_matrix_const_column(B, i);
+        gsl_vector_const_view v_w = gsl_matrix_const_column(ws->W, i);
         
         // µ = <t,w>/||w||^2 and c is µ rounded to the closest integer.
-        double mu = calc_mu(ws->t,ws->w);
-        double c = round(mu);
+        double c = round(calc_mu(ws->t, &v_w.vector));
         
-        /* Calculate the new target t = t - (µ-c)*w - c*b and add
+        /* Calculate the new target t = t - c*b and add
          * c*b to result: res = res + c*b.
          */
-        gsl_vector_scale(ws->w, mu-c);  //w = (µ-c)*w
-        gsl_vector_scale(ws->b, c);     //b = c*b
-        
-        gsl_vector_sub(ws->t, ws->w);   //t = t - w
-        gsl_vector_sub(ws->t, ws->b);   //t = t - b
-        gsl_vector_add(clp, ws->b); //res = res + b
+        gsl_blas_daxpy(-c, &v_b.vector, ws->t); // t = t - c * b
+        gsl_blas_daxpy(c, &v_b.vector, clp);    // clp = clp - c * b
     }
 }
 
