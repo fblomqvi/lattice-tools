@@ -7,8 +7,10 @@
 
 struct s_babai_ws
 {
-    gsl_matrix* W;
-    gsl_vector* t;
+    gsl_matrix* Q;
+    gsl_matrix* R;
+    gsl_vector* s;
+    gsl_vector* y;
 };
 
 BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
@@ -16,16 +18,65 @@ BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
     BABAI_WS* ws = malloc(sizeof(BABAI_WS));
     libcheck_mem(ws);
 
-    // Calculate orthogonal basis for span(B) using the modified Gram-Schmidt process.
-    ws->W = gram_schmidt(B);
-    llibcheck_mem(ws->W, error_a);
+    size_t n = B->size1;
+    size_t m = B->size2;
+    assert(n >= m);
 
-    ws->t = gsl_vector_alloc(B->size1);
-    llibcheck_mem(ws->t, error_b);
+    /* Allocate memory for the spheredecoder function.
+     * Matrices Q and R store the QR decomposition of B.
+     * y is later set to (Q_1^T)*x.
+     * Integer vector s stores possible solutions for min( ||t-B*s|| ), 
+     * best_s stores the best solution for the CVP found so far.
+     * ub stores the upper bound values used in calculating the interval for s_k.
+     * d2 and yhat are used in determining the interval in which s_k must be (see
+     * calc_d2 and calc_yhat)
+     * Rs and Rbest_s store values used to determine wether a new solution is
+     * better than the previous best one.*/
+ 
+    ws->Q = gsl_matrix_alloc(n,n);
+    llibcheck_mem(ws->Q, error_a);
+
+    ws->R = gsl_matrix_alloc(n,m);    
+    llibcheck_mem(ws->R, error_b);
+
+    ws->y = gsl_vector_alloc(m);
+    llibcheck_mem(ws->y, error_c);
+
+    ws->s = gsl_vector_alloc(m);
+    llibcheck_mem(ws->s, error_d);
+
+    /* Tau is a vector used only for the gsl QR decomposition function.
+     * The size of tau must be min of n,m; this is always m for now.*/
+    size_t tausize = (n < m) ? n : m;
+    /* Compute the QR-decomposition of lattice basis B and store it to matrices
+     * Q and R, don't alter B. */
+    gsl_matrix *B_copy = gsl_matrix_alloc(n, m);
+    gsl_matrix_memcpy(B_copy, B);
+    gsl_vector *tau = gsl_vector_alloc(tausize);
+    gsl_linalg_QR_decomp(B_copy, tau);
+    gsl_linalg_QR_unpack(B_copy, tau, ws->Q, ws->R);
+    gsl_vector_free(tau);
+    gsl_matrix_free(B_copy);
+
+    // Make the diagonal of R positive, as required by the algorithm.
+    for(size_t i = 0; i < m; i++) 
+    {
+        if(gsl_matrix_get(ws->R, i, i) < 0) 
+        {
+            gsl_vector_view Rrow = gsl_matrix_row(ws->R, i);
+            gsl_vector_view Qcol = gsl_matrix_column(ws->Q,i);
+            gsl_vector_scale(&Rrow.vector, -1);
+            gsl_vector_scale(&Qcol.vector, -1);
+        }
+    }
     return ws;
 
+error_d:
+    gsl_vector_free(ws->y);
+error_c:
+    gsl_matrix_free(ws->R);
 error_b:
-    gsl_matrix_free(ws->W);
+    gsl_matrix_free(ws->Q);
 error_a:
     free(ws);
 error:
@@ -36,42 +87,34 @@ void BABAI_WS_free(BABAI_WS* ws)
 {
     if(ws)
     {
-        gsl_matrix_free(ws->W);
-        gsl_vector_free(ws->t);
+        gsl_matrix_free(ws->Q);
+        gsl_matrix_free(ws->R);
+        gsl_vector_free(ws->y);
+        gsl_vector_free(ws->s);
         free(ws);
     }
 }
 
-/* Calculates an approximation for the nearest lattice point in the lattice
- * with basis B to target vector orig_t by repeatedly projecting the target
- * vector to the nearest hyperplane defined by the Gram-Schmidt orthogonalization
- * of B. Allocates memory for the result vector, the original matrix B and
- * vector orig_t are left untouched.
- */
-void babai(gsl_vector* clp, const gsl_vector* orig_t, const gsl_matrix* B, BABAI_WS* ws)
+static double calc_yhat(size_t k, const gsl_matrix* R, 
+                        const gsl_vector* y, const gsl_vector* s) 
 {
-    assert(B->size1 == orig_t->size);
+    size_t m = R->size2;
+    double sum = 0;
+    for (size_t j = k+1; j < m; j++)
+        sum += gsl_matrix_get(R, k, j) * gsl_vector_get(s, j);
     
-    gsl_vector_set_zero(clp);
-    gsl_vector_memcpy(ws->t, orig_t);
+    return gsl_vector_get(y, k) - sum;
+}
+
+void babai(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, BABAI_WS* ws)
+{
+    gsl_matrix_view Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, B->size1, B->size2);
+    gsl_blas_dgemv(CblasTrans, 1, &Q1.matrix, t, 0, ws->y);
     
-    for(int i = B->size2-1; i >= 0; i--)
-    {
-        /* Set b to be the i:th column of the lattice basis matrix B and
-         * w the i:th column of the Gram-Schmidt orthogonalized basis matrix W.
-         */
-        gsl_vector_const_view v_b = gsl_matrix_const_column(B, i);
-        gsl_vector_const_view v_w = gsl_matrix_const_column(ws->W, i);
-        
-        // µ = <t,w>/||w||^2 and c is µ rounded to the closest integer.
-        double c = round(calc_mu(ws->t, &v_w.vector));
-        
-        /* Calculate the new target t = t - c*b and add
-         * c*b to result: res = res + c*b.
-         */
-        gsl_blas_daxpy(-c, &v_b.vector, ws->t); // t = t - c * b
-        gsl_blas_daxpy(c, &v_b.vector, clp);    // clp = clp - c * b
-    }
+    for(int k = B->size2-1; k >= 0; k--)
+        gsl_vector_set(ws->s, k, round(calc_yhat(k, ws->R, ws->y, ws->s)));
+
+    gsl_blas_dgemv(CblasNoTrans, 1, B, ws->s, 0, clp);
 }
 
 void babai_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
