@@ -11,6 +11,7 @@ struct s_babai_ws
     gsl_matrix* R;
     gsl_vector* s;
     gsl_vector* y;
+    gsl_matrix_view Q1;
 };
 
 BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
@@ -58,6 +59,8 @@ BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
             gsl_vector_scale(&Qcol.vector, -1);
         }
     }
+
+    ws->Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
     return ws;
 
 error_d:
@@ -97,8 +100,7 @@ static double calc_yhat(size_t k, const gsl_matrix* R,
 
 void babai(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, BABAI_WS* ws)
 {
-    gsl_matrix_view Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, B->size1, B->size2);
-    gsl_blas_dgemv(CblasTrans, 1, &Q1.matrix, t, 0, ws->y);
+    gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, ws->y);
     
     for(int k = B->size2-1; k >= 0; k--)
     {
