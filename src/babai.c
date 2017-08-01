@@ -40,9 +40,13 @@ BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
     size_t tausize = (n < m) ? n : m;
     /* Compute the QR-decomposition of lattice basis B and store it to matrices
      * Q and R, don't alter B. */
-    gsl_matrix *B_copy = gsl_matrix_alloc(n, m);
+    gsl_matrix* B_copy = gsl_matrix_alloc(n, m);
+    llibcheck_mem(B_copy, error_e);
+
+    gsl_vector* tau = gsl_vector_alloc(tausize);
+    llibcheck_mem(tau, error_f);
+
     gsl_matrix_memcpy(B_copy, B);
-    gsl_vector *tau = gsl_vector_alloc(tausize);
     gsl_linalg_QR_decomp(B_copy, tau);
     gsl_linalg_QR_unpack(B_copy, tau, ws->Q, ws->R);
     gsl_vector_free(tau);
@@ -63,6 +67,10 @@ BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
     ws->Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
     return ws;
 
+error_f:
+    gsl_matrix_free(B_copy);
+error_e:
+    gsl_vector_free(ws->s);
 error_d:
     gsl_vector_free(ws->y);
 error_c:
