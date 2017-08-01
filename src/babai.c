@@ -22,11 +22,11 @@ BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
     size_t n = B->size1;
     size_t m = B->size2;
     assert(n >= m);
- 
+
     ws->Q = gsl_matrix_alloc(n,n);
     llibcheck_mem(ws->Q, error_a);
 
-    ws->R = gsl_matrix_alloc(n,m);    
+    ws->R = gsl_matrix_alloc(n,m);
     llibcheck_mem(ws->R, error_b);
 
     ws->y = gsl_vector_alloc(m);
@@ -53,9 +53,9 @@ BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
     gsl_matrix_free(B_copy);
 
     // Make the diagonal of R positive, as required by the algorithm.
-    for(size_t i = 0; i < m; i++) 
+    for(size_t i = 0; i < m; i++)
     {
-        if(gsl_matrix_get(ws->R, i, i) < 0) 
+        if(gsl_matrix_get(ws->R, i, i) < 0)
         {
             gsl_vector_view Rrow = gsl_matrix_row(ws->R, i);
             gsl_vector_view Qcol = gsl_matrix_column(ws->Q,i);
