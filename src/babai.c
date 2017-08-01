@@ -21,17 +21,6 @@ BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B)
     size_t n = B->size1;
     size_t m = B->size2;
     assert(n >= m);
-
-    /* Allocate memory for the spheredecoder function.
-     * Matrices Q and R store the QR decomposition of B.
-     * y is later set to (Q_1^T)*x.
-     * Integer vector s stores possible solutions for min( ||t-B*s|| ), 
-     * best_s stores the best solution for the CVP found so far.
-     * ub stores the upper bound values used in calculating the interval for s_k.
-     * d2 and yhat are used in determining the interval in which s_k must be (see
-     * calc_d2 and calc_yhat)
-     * Rs and Rbest_s store values used to determine wether a new solution is
-     * better than the previous best one.*/
  
     ws->Q = gsl_matrix_alloc(n,n);
     llibcheck_mem(ws->Q, error_a);
@@ -112,7 +101,10 @@ void babai(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, BABAI_WS* 
     gsl_blas_dgemv(CblasTrans, 1, &Q1.matrix, t, 0, ws->y);
     
     for(int k = B->size2-1; k >= 0; k--)
-        gsl_vector_set(ws->s, k, round(calc_yhat(k, ws->R, ws->y, ws->s)));
+    {
+        double s_k = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
+        gsl_vector_set(ws->s, k, round(s_k));
+    }
 
     gsl_blas_dgemv(CblasNoTrans, 1, B, ws->s, 0, clp);
 }
