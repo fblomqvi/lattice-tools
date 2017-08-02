@@ -10,14 +10,19 @@ struct s_dp_ws
 {
     gsl_matrix* Q;
     gsl_matrix* R;
-    gsl_vector* s;
-    gsl_vector* y;
-    gsl_vector* best_s;
-    gsl_vector* Rs;
-    gsl_vector* Rbest_s;
     double* ub;
     double* d2;
     double* yhat;
+    double* s;
+    double* x;
+    double* y;
+    double* data;
+    gsl_vector_view v_s;
+    gsl_vector_view v_y;
+    gsl_vector_view v_x;
+    gsl_vector_view Rs;
+    gsl_matrix_view m_Q;
+    gsl_matrix_view m_R;
     gsl_matrix_view Q1;
     gsl_matrix_view Rsub;
 };
@@ -31,17 +36,27 @@ DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
     size_t m = B->size2;
     assert(n >= m);
 
-    ws->Q = gsl_matrix_alloc(n,n);
-    llibcheck_mem(ws->Q, error_a);
+    size_t Q_size = n * n;
+    size_t R_size = n * m;
+    ws->data = malloc((Q_size + R_size + 7 * m) * sizeof(double));
+    llibcheck_mem(ws->data, error_a);
 
-    ws->R = gsl_matrix_alloc(n,m);
-    llibcheck_mem(ws->R, error_b);
+    ws->ub = ws->data + Q_size + R_size;
+    ws->d2 = ws->ub + m;
+    ws->yhat = ws->d2 + m;
+    ws->s = ws->yhat + m;
+    ws->x = ws->s + m;
+    ws->y = ws->x + m;
 
-    ws->y = gsl_vector_alloc(m);
-    llibcheck_mem(ws->y, error_c);
+    ws->v_s = gsl_vector_view_array(ws->s, m);
+    ws->v_x = gsl_vector_view_array(ws->x, m);
+    ws->v_y = gsl_vector_view_array(ws->y, m);
+    ws->Rs = gsl_vector_view_array(ws->y + m, m);
 
-    ws->s = gsl_vector_alloc(m);
-    llibcheck_mem(ws->s, error_d);
+    ws->m_Q = gsl_matrix_view_array(ws->data, n, n);
+    ws->m_R = gsl_matrix_view_array(ws->data + Q_size, n, m);
+    ws->Q = &ws->m_Q.matrix;
+    ws->R = &ws->m_R.matrix;
 
     /* Tau is a vector used only for the gsl QR decomposition function.
      * The size of tau must be min of n,m; this is always m for now.*/
@@ -49,23 +64,16 @@ DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
     /* Compute the QR-decomposition of lattice basis B and store it to matrices
      * Q and R, don't alter B. */
     gsl_matrix* B_copy = gsl_matrix_alloc(n, m);
-    llibcheck_mem(B_copy, error_e);
+    llibcheck_mem(B_copy, error_d);
 
     gsl_vector* tau = gsl_vector_alloc(tausize);
-    llibcheck_mem(tau, error_f);
+    llibcheck_mem(tau, error_e);
 
     gsl_matrix_memcpy(B_copy, B);
     gsl_linalg_QR_decomp(B_copy, tau);
     gsl_linalg_QR_unpack(B_copy, tau, ws->Q, ws->R);
     gsl_vector_free(tau);
     gsl_matrix_free(B_copy);
-
-    ws->best_s = gsl_vector_alloc(m);
-    ws->Rs = gsl_vector_alloc(m);
-    ws->Rbest_s = gsl_vector_alloc(m);
-    ws->ub = malloc(3 * m * sizeof(double));
-    ws->d2 = ws->ub + m;
-    ws->yhat = ws->d2 + m;
 
     // Make the diagonal of R positive, as required by the algorithm.
     for(size_t i = 0; i < m; i++)
@@ -83,16 +91,10 @@ DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
     ws->Rsub = gsl_matrix_submatrix(ws->R, 0, 0, m, m);
     return ws;
 
-error_f:
-    gsl_matrix_free(B_copy);
 error_e:
-    gsl_vector_free(ws->s);
+    gsl_matrix_free(B_copy);
 error_d:
-    gsl_vector_free(ws->y);
-error_c:
-    gsl_matrix_free(ws->R);
-error_b:
-    gsl_matrix_free(ws->Q);
+    free(ws->data);
 error_a:
     free(ws);
 error:
@@ -103,67 +105,52 @@ void DP_WS_free(DP_WS *ws)
 {
     if(ws)
     {
-        gsl_matrix_free(ws->Q);
-        gsl_matrix_free(ws->R);
-        gsl_vector_free(ws->y);
-        gsl_vector_free(ws->s);
-        gsl_vector_free(ws->best_s);
-        gsl_vector_free(ws->Rs);
-        gsl_vector_free(ws->Rbest_s);
-        free(ws->ub);
+        free(ws->data);
         free(ws);
     }
 }
 
-static double calc_yhat(size_t k, const gsl_matrix* R, 
-                        const gsl_vector* y, const gsl_vector* s) 
+static double calc_yhat(size_t k, const gsl_matrix* R, const double* y, const double* s) 
 {
     size_t m = R->size2;
     double sum = 0;
     for (size_t j = k+1; j < m; j++)
-        sum += gsl_matrix_get(R, k, j) * gsl_vector_get(s, j);
+        sum += gsl_matrix_get(R, k, j) * s[j];
     
-    return gsl_vector_get(y, k) - sum;
+    return y[k] - sum;
 }
 
 static double calc_d2(size_t k, DP_WS* ws)
 {
     size_t idx = k + 1;
-    double res = ws->yhat[idx] - gsl_matrix_get(ws->R, idx, idx) * gsl_vector_get(ws->s, idx);
+    double res = ws->yhat[idx] - gsl_matrix_get(ws->R, idx, idx) * ws->s[idx];
     return -1 * res * res + ws->d2[idx];
 }
 
 void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_WS *ws)
 {
     assert(B->size1 == t->size);
+    size_t m = B->size2;
 
     // First we do Babai
-    gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, ws->y);
-    
-    for(int k = B->size2-1; k >= 0; k--)
-    {
-        double s_k = calc_yhat(k, ws->R, ws->y, ws->best_s) / gsl_matrix_get(ws->R, k, k);
-        gsl_vector_set(ws->best_s, k, round(s_k));
-    }
+    gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
+    for(int k = m-1; k >= 0; k--)
+        ws->x[k] = round(calc_yhat(k, ws->R, ws->y, ws->x) / gsl_matrix_get(ws->R, k, k));
 
-    // Calculate ||y-Rs||^2
+    // Calculate ||y-Rx||^2
     double d_sqr;
-    gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, ws->best_s, 0, ws->Rbest_s);
-    gsl_vector_sub(ws->Rbest_s, ws->y);
-    gsl_blas_ddot(ws->Rbest_s, ws->Rbest_s, &d_sqr);
+    gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, 
+            &ws->v_x.vector, 0, &ws->Rs.vector);
+    gsl_vector_sub(&ws->Rs.vector, &ws->v_y.vector);
+    gsl_blas_ddot(&ws->Rs.vector, &ws->Rs.vector, &d_sqr);
 
     // Now we can do the combination of doubleplane and spheredecoding
-    //size_t n = B->size1;
-    size_t m = B->size2;
-    double y_minus_Rbest_s_len = d_sqr;
-    
     // Step 1: set initial values.
+    int set_new_bounds = 1;
+    size_t solutions = 0;
     size_t k = m - 1;
     ws->d2[k] = d_sqr;
     ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
-    
-    int set_new_bounds = 1;
-    size_t solutions = 0;
     
     while(k < m) 
     {
@@ -177,18 +164,15 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_W
             double min1 = ceil(-d2_sqrt_div_rkk + yhat_div_rkk);
             double min2 = floor(yhat_div_rkk);
             double max2 = min2 + 1;
-            gsl_vector_set(ws->s, k, min1 < min2 ? min2 : min1);
+            ws->s[k] = min1 < min2 ? min2 : min1;
             ws->ub[k] = max1 > max2 ? max2 : max1;
             // Don't set new bounds on next iteration unless required by step 5b.
             set_new_bounds = 0;
         }
         else
-        {
-            // Step 3: Set s_k = s_k + 1.
-            gsl_vector_set(ws->s, k, gsl_vector_get(ws->s, k) + 1);
-        }
+            ws->s[k] += 1.0;    // Step 3
 
-        if(gsl_vector_get(ws->s, k) > ws->ub[k]) 
+        if(ws->s[k] > ws->ub[k]) 
         {
             // Step 4: Increase k by 1. If k = m + 1, the algorithm will
             //         terminate (by the while loop).
@@ -202,19 +186,18 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_W
                 // Step 5a: Solution found.
                 solutions++;
 
-                gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, ws->s, 0, ws->Rs);
-                gsl_vector_sub(ws->Rs, ws->y);
+                gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, 
+                            &ws->v_s.vector, 0, &ws->Rs.vector);
+                gsl_vector_sub(&ws->Rs.vector, &ws->v_y.vector);
 
-                // Rs = R*s-y; Rbest_s = R*best_s-y
                 double y_minus_Rs_len;
-                gsl_blas_ddot(ws->Rs, ws->Rs, &y_minus_Rs_len);
+                gsl_blas_ddot(&ws->Rs.vector, &ws->Rs.vector, &y_minus_Rs_len);
 
                 // If new s gives a better solution to the CVP, store it to best_s.
-                if(y_minus_Rs_len < y_minus_Rbest_s_len) 
+                if(y_minus_Rs_len < d_sqr) 
                 {
-                    gsl_vector_memcpy(ws->best_s, ws->s);
-                    gsl_vector_memcpy(ws->Rbest_s, ws->Rs);
-                    y_minus_Rbest_s_len = y_minus_Rs_len;
+                    gsl_vector_memcpy(&ws->v_x.vector, &ws->v_s.vector);
+                    d_sqr = y_minus_Rs_len;
                 }
             } 
             else 
@@ -229,7 +212,7 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_W
         }
     }
 
-    gsl_blas_dgemv(CblasNoTrans, 1, B, ws->best_s, 0, clp);
+    gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
     //fprintf(stderr, "DP: Tried %zu points\n", solutions);
 }
 
