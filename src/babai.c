@@ -2,7 +2,6 @@
 #include "babai.h"
 #include <math.h>
 #include <assert.h>
-#include "utility.h"
 #include <gsl/gsl_blas.h>
 
 struct s_babai_ws
