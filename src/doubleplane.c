@@ -4,7 +4,6 @@
 #include <gsl/gsl_blas.h>
 #include "utility.h"
 #include "doubleplane.h"
-#include "babai.h"
 
 struct s_dp_ws
 {
@@ -110,13 +109,13 @@ void DP_WS_free(DP_WS *ws)
     }
 }
 
-static double calc_yhat(size_t k, const gsl_matrix* R, const double* y, const double* s) 
+static double calc_yhat(size_t k, const gsl_matrix* R, const double* y, const double* s)
 {
     size_t m = R->size2;
     double sum = 0;
     for (size_t j = k+1; j < m; j++)
         sum += gsl_matrix_get(R, k, j) * s[j];
-    
+
     return y[k] - sum;
 }
 
@@ -139,7 +138,7 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_W
 
     // Calculate ||y-Rx||^2
     double d_sqr;
-    gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, 
+    gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix,
             &ws->v_x.vector, 0, &ws->Rs.vector);
     gsl_vector_sub(&ws->Rs.vector, &ws->v_y.vector);
     gsl_blas_ddot(&ws->Rs.vector, &ws->Rs.vector, &d_sqr);
@@ -151,10 +150,10 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_W
     size_t k = m - 1;
     ws->d2[k] = d_sqr;
     ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
-    
-    while(k < m) 
+
+    while(k < m)
     {
-        if(set_new_bounds) 
+        if(set_new_bounds)
         {
             // Step 2: Calculate upper bound for s_k and set s_k to lower bound.
             double Rkk = gsl_matrix_get(ws->R, k, k);
@@ -172,16 +171,16 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_W
         else
             ws->s[k] += 1.0;    // Step 3
 
-        if(ws->s[k] > ws->ub[k]) 
+        if(ws->s[k] > ws->ub[k])
         {
             // Step 4: Increase k by 1. If k = m + 1, the algorithm will
             //         terminate (by the while loop).
             k++;
-        } 
-        else 
+        }
+        else
         {
             // Step 5
-            if(k == 0) 
+            if(k == 0)
             {
                 // Step 5a: Solution found.
                 solutions++;
@@ -194,12 +193,12 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_W
                 gsl_blas_ddot(&ws->Rs.vector, &ws->Rs.vector, &y_minus_Rs_len);
 
                 // If new s gives a better solution to the CVP, store it to best_s.
-                if(y_minus_Rs_len < d_sqr) 
+                if(y_minus_Rs_len < d_sqr)
                 {
                     gsl_vector_memcpy(&ws->v_x.vector, &ws->v_s.vector);
                     d_sqr = y_minus_Rs_len;
                 }
-            } 
+            }
             else 
             {
                 // Step 5b: Decrease k and calculate new ŷ_k and d_k^2
