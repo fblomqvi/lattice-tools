@@ -18,8 +18,6 @@ struct s_dp_ws
     double* ub;
     double* d2;
     double* yhat;
-    gsl_vector* babai_clp;
-    BABAI_WS* babai_ws;
     gsl_matrix_view Q1;
     gsl_matrix_view Rsub;
 };
@@ -65,11 +63,9 @@ DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
     ws->best_s = gsl_vector_alloc(m);
     ws->Rs = gsl_vector_alloc(m);
     ws->Rbest_s = gsl_vector_alloc(m);
-    ws->ub = malloc(m * sizeof(double));
-    ws->d2 = malloc(m * sizeof(double));
-    ws->yhat = malloc(m * sizeof(double));
-    ws->babai_clp = gsl_vector_alloc(n);
-    ws->babai_ws = BABAI_WS_alloc_and_init(B);
+    ws->ub = malloc(3 * m * sizeof(double));
+    ws->d2 = ws->ub + m;
+    ws->yhat = ws->d2 + m;
 
     // Make the diagonal of R positive, as required by the algorithm.
     for(size_t i = 0; i < m; i++)
@@ -115,10 +111,6 @@ void DP_WS_free(DP_WS *ws)
         gsl_vector_free(ws->Rs);
         gsl_vector_free(ws->Rbest_s);
         free(ws->ub);
-        free(ws->d2);
-        free(ws->yhat);
-        gsl_vector_free(ws->babai_clp);
-        BABAI_WS_free(ws->babai_ws);
         free(ws);
     }
 }
@@ -134,50 +126,45 @@ static double calc_yhat(size_t k, const gsl_matrix* R,
     return gsl_vector_get(y, k) - sum;
 }
 
-static double calc_d2(int k, DP_WS* ws) 
+static double calc_d2(size_t k, DP_WS* ws)
 {
-    double res = ws->yhat[k+1] - gsl_matrix_get(ws->R, k+1, k+1) * gsl_vector_get(ws->s, k+1);
-    res = -1*res*res + ws->d2[k+1];
-    return res;
+    size_t idx = k + 1;
+    double res = ws->yhat[idx] - gsl_matrix_get(ws->R, idx, idx) * gsl_vector_get(ws->s, idx);
+    return -1 * res * res + ws->d2[idx];
 }
 
-void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, 
-                double d, DP_WS *ws)
+void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_WS *ws)
 {
     assert(B->size1 == t->size);
 
-    size_t n = B->size1;
-    size_t m = B->size2;
-
+    // First we do Babai
     gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, ws->y);
-    // Set Q2Tx_len2 = ||(Q2^T)*x||^2.
-    double Q2Tx_len2 = 0;
-    if (n > m) 
+    
+    for(int k = B->size2-1; k >= 0; k--)
     {
-        gsl_matrix_view Q2 = gsl_matrix_submatrix(ws->Q, 0, m, n, n-m);
-        gsl_vector *Q2Tx = gsl_vector_alloc(n-m);
-        gsl_blas_dgemv(CblasTrans, 1, &Q2.matrix, t, 0, Q2Tx);
-        gsl_blas_ddot(Q2Tx, Q2Tx, &Q2Tx_len2);
-        gsl_vector_free(Q2Tx);
+        double s_k = calc_yhat(k, ws->R, ws->y, ws->best_s) / gsl_matrix_get(ws->R, k, k);
+        gsl_vector_set(ws->best_s, k, round(s_k));
     }
+
+    // Calculate ||y-Rs||^2
+    double d_sqr;
+    gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, ws->best_s, 0, ws->Rbest_s);
+    gsl_vector_sub(ws->Rbest_s, ws->y);
+    gsl_blas_ddot(ws->Rbest_s, ws->Rbest_s, &d_sqr);
+
+    // Now we can do the combination of doubleplane and spheredecoding
+    //size_t n = B->size1;
+    size_t m = B->size2;
+    double y_minus_Rbest_s_len = d_sqr;
     
     // Step 1: set initial values.
     size_t k = m - 1;
-    ws->d2[k] = d*d - Q2Tx_len2;
+    ws->d2[k] = d_sqr;
     ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
     
     int set_new_bounds = 1;
     size_t solutions = 0;
     
-    if (ws->d2[k] < 0) 
-    {
-        // If B is not a square matrix, it is possible for the initial distance
-        // requirement to be negative. In this case, terminate.
-        fprintf(stderr, "Initial radius too small. Terminating. (d = %f, d2_k = %f)\n", 
-                d, ws->d2[k]);
-        return;
-    }
-
     while(k < m) 
     {
         if(set_new_bounds) 
@@ -215,32 +202,19 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B,
                 // Step 5a: Solution found.
                 solutions++;
 
-                if(solutions == 1) 
+                gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, ws->s, 0, ws->Rs);
+                gsl_vector_sub(ws->Rs, ws->y);
+
+                // Rs = R*s-y; Rbest_s = R*best_s-y
+                double y_minus_Rs_len;
+                gsl_blas_ddot(ws->Rs, ws->Rs, &y_minus_Rs_len);
+
+                // If new s gives a better solution to the CVP, store it to best_s.
+                if(y_minus_Rs_len < y_minus_Rbest_s_len) 
                 {
-                    // First found solution is stored to best_s and Rbest_s is set to R*best_s-y
                     gsl_vector_memcpy(ws->best_s, ws->s);
-                    gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, 
-                                    ws->best_s, 0, ws->Rbest_s);
-                    gsl_vector_sub(ws->Rbest_s, ws->y);
-                } 
-                else 
-                {
-                    gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, ws->s, 0, ws->Rs);
-                    gsl_vector_sub(ws->Rs, ws->y);
-
-                    // Rs = R*s-y; Rbest_s = R*best_s-y
-                    double y_minus_Rs_len;
-                    double y_minus_Rbest_s_len;
-                    // y_minus_Rs_len = ||Rs||^2; y_minus_Rbest_s_len = ||Rbest_s||^2
-                    gsl_blas_ddot(ws->Rs, ws->Rs, &y_minus_Rs_len);
-                    gsl_blas_ddot(ws->Rbest_s, ws->Rbest_s, &y_minus_Rbest_s_len);
-
-                    // If new s gives a better solution to the CVP, store it to best_s.
-                    if(y_minus_Rs_len < y_minus_Rbest_s_len) 
-                    {
-                        gsl_vector_memcpy(ws->best_s, ws->s);
-                        gsl_vector_memcpy(ws->Rbest_s, ws->Rs);
-                    }
+                    gsl_vector_memcpy(ws->Rbest_s, ws->Rs);
+                    y_minus_Rbest_s_len = y_minus_Rs_len;
                 }
             } 
             else 
@@ -260,18 +234,5 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B,
 }
 
 void doubleplane_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
-{ 
-    DP_WS* dp_ws = (DP_WS*) ws;
-    babai_g(dp_ws->babai_clp, t, B, dp_ws->babai_ws);
-    gsl_vector_sub(dp_ws->babai_clp, t);
-    double d;
-    gsl_blas_ddot(dp_ws->babai_clp, dp_ws->babai_clp, &d);
-    d = sqrt(d);
-    if(d == 0)
-        d = 0.001;
-    else
-        d *= 1.001;
-
-    doubleplane(clp, t, B, d, dp_ws); 
-}
+{ doubleplane(clp, t, B, ws); }
 
