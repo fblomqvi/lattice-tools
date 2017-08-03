@@ -6,7 +6,6 @@
 
 struct s_dp_ws
 {
-    gsl_matrix* Q;
     gsl_matrix* R;
     double* s;
     double* x;
@@ -17,10 +16,8 @@ struct s_dp_ws
     gsl_vector_view v_y;
     gsl_vector_view v_x;
     gsl_vector_view v_Rs;
-    gsl_matrix_view m_Q;
     gsl_matrix_view m_R;
     gsl_matrix_view Q1;
-    gsl_matrix_view Rsub;
     int solutions;
     double dist;
     double dist_min;
@@ -50,9 +47,13 @@ DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
     ws->v_y = gsl_vector_view_array(ws->y, m);
     ws->v_Rs = gsl_vector_view_array(ws->Rs, m);
 
-    ws->m_Q = gsl_matrix_view_array(ws->data, n, n);
-    ws->m_R = gsl_matrix_view_array(ws->data + Q_size, n, m);
-    ws->Q = &ws->m_Q.matrix;
+    gsl_matrix_view m_Q = gsl_matrix_view_array(ws->data, n, n);
+    gsl_matrix_view m_R = gsl_matrix_view_array(ws->data + Q_size, n, m);
+    gsl_matrix* Q = &m_Q.matrix;
+    gsl_matrix* R = &m_R.matrix;
+
+    ws->Q1 = gsl_matrix_submatrix(Q, 0, 0, n, m);
+    ws->m_R = gsl_matrix_submatrix(R, 0, 0, m, m);
     ws->R = &ws->m_R.matrix;
 
     /* Tau is a vector used only for the gsl QR decomposition function.
@@ -68,24 +69,21 @@ DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
 
     gsl_matrix_memcpy(B_copy, B);
     gsl_linalg_QR_decomp(B_copy, tau);
-    gsl_linalg_QR_unpack(B_copy, tau, ws->Q, ws->R);
+    gsl_linalg_QR_unpack(B_copy, tau, Q, R);
     gsl_vector_free(tau);
     gsl_matrix_free(B_copy);
 
     // Make the diagonal of R positive, as required by the algorithm.
     for(size_t i = 0; i < m; i++)
     {
-        if(gsl_matrix_get(ws->R, i, i) < 0)
+        if(gsl_matrix_get(R, i, i) < 0)
         {
-            gsl_vector_view Rrow = gsl_matrix_row(ws->R, i);
-            gsl_vector_view Qcol = gsl_matrix_column(ws->Q,i);
+            gsl_vector_view Rrow = gsl_matrix_row(R, i);
+            gsl_vector_view Qcol = gsl_matrix_column(Q,i);
             gsl_vector_scale(&Rrow.vector, -1);
             gsl_vector_scale(&Qcol.vector, -1);
         }
     }
-
-    ws->Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
-    ws->Rsub = gsl_matrix_submatrix(ws->R, 0, 0, m, m);
 
     return ws;
 
@@ -129,7 +127,7 @@ void doubleplane_helper(DP_WS* ws, size_t m)
             // Caclulate ||y-Rs|| and replace ws->x with the new value if needed.
             gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_s.vector);
             gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
-                            &ws->Rsub.matrix, &ws->v_Rs.vector);
+                            ws->R, &ws->v_Rs.vector);
             gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
             gsl_blas_ddot(&ws->v_Rs.vector, &ws->v_Rs.vector, &ws->dist);
             if(ws->dist < ws->dist_min)
@@ -142,7 +140,7 @@ void doubleplane_helper(DP_WS* ws, size_t m)
         {
             gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_s.vector);
             gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
-                            &ws->Rsub.matrix, &ws->v_Rs.vector);
+                            ws->R, &ws->v_Rs.vector);
             gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
             gsl_blas_ddot(&ws->v_Rs.vector, &ws->v_Rs.vector, &ws->dist_min);
             gsl_vector_memcpy(&ws->v_x.vector, &ws->v_s.vector);
@@ -171,4 +169,3 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_W
 
 void doubleplane_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
 { doubleplane(clp, t, B, ws); }
-
