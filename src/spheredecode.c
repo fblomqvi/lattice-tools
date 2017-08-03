@@ -25,7 +25,6 @@ struct s_sd_ws
     gsl_matrix_view m_R;
     gsl_matrix_view Q1;
     gsl_matrix_view Rsub;
-    int dp_bounds;
 };
 
 static void sd_dp_common(SD_WS* ws, const gsl_vector* t, double* d_sqr, size_t m);
@@ -106,7 +105,6 @@ SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
 
     ws->Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
     ws->Rsub = gsl_matrix_submatrix(ws->R, 0, 0, m, m);
-    ws->dp_bounds = 0;
     return ws;
 
 error_e:
@@ -189,7 +187,7 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_
     int set_new_bounds = 1;
     size_t solutions = 0;
     size_t k = m - 1;
-    ws->d2[k] = d_sqr;
+    ws->d2[k] = d_sqr * 1.000000001;
     ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
 
     while(k < m)
@@ -234,7 +232,7 @@ void sd_dp(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_WS *ws)
     int set_new_bounds = 1;
     size_t solutions = 0;
     size_t k = m - 1;
-    ws->d2[k] = d_sqr;
+    ws->d2[k] = d_sqr * 1.000000001;
     ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
 
     while(k < m)
