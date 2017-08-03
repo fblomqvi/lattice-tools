@@ -19,9 +19,7 @@
 #include "version.h"
 #include "rng.h"
 #include "rnd_point.h"
-#include "babai.h"
-#include "spheredecode.h"
-#include "doubleplane.h"
+#include "algorithm.h"
 #include "utility.h"
 #include <getopt.h>
 #include <errno.h>
@@ -34,26 +32,12 @@
 #include <math.h>
 
 #define EPSILON 10E-10
-#define ALG_NAME_BABAI "babai"
-#define ALG_NAME_DPLANE "dplane"
-#define ALG_NAME_SPHERE "sphere"
-#define ALG_NAME_SD_DP "sphere-dp"
-
-typedef enum algorithm
-{
-    ALG_BABAI = 1,
-    ALG_DPLANE,
-    ALG_SPHERE,
-    ALG_SD_DP,
-} Algorithm;
 
 typedef enum enum_mode
 {
     MODE_STANDARD = 1,
     MODE_COMPARE
 } Mode;
-
-typedef void (*SOLVE_func)(gsl_vector*, const gsl_vector*, const gsl_matrix*, void*);
 
 typedef struct s_options 
 {
@@ -112,15 +96,6 @@ static int print_help(FILE* file)
                 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
-static int parse_alg(const char* alg)
-{
-    if(!strcmp(alg, ALG_NAME_BABAI)) return ALG_BABAI;
-    if(!strcmp(alg, ALG_NAME_DPLANE)) return ALG_DPLANE;
-    if(!strcmp(alg, ALG_NAME_SPHERE)) return ALG_SPHERE;
-    if(!strcmp(alg, ALG_NAME_SD_DP)) return ALG_SD_DP;
-    return 0;
-}
-
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 {
     static const char* optstring = "a:c:n:tRC";
@@ -145,11 +120,11 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
         switch(ch)
         {
             case 'a':
-                opt->alg = parse_alg(optarg);
+                opt->alg = algorithm_parse_name(optarg);
                 check(opt->alg > 0, "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 'c':
-                opt->alg_cmp = parse_alg(optarg);
+                opt->alg_cmp = algorithm_parse_name(optarg);
                 check(opt->alg_cmp > 0, "invalid argument to option '%c': '%s'", ch, optarg);
                 opt->mode = MODE_COMPARE;
                 break;
@@ -252,37 +227,6 @@ error:
     return NULL;
 }
 
-static int init_ws(SOLVE_func* f, void** ws, Algorithm alg, const gsl_matrix* basis)
-{
-    switch(alg)
-    {
-        case ALG_BABAI:
-            *f = babai_g;
-            *ws = BABAI_WS_alloc_and_init(basis);
-            break;
-        case ALG_DPLANE:
-            *f = doubleplane_g;
-            *ws = DP_WS_alloc_and_init(basis);
-            break;
-        case ALG_SPHERE:
-            *f = spheredecode_g;
-            *ws = SD_WS_alloc_and_init(basis);
-            break;
-        case ALG_SD_DP:
-            *f = sd_dp_g;
-            *ws = SD_WS_alloc_and_init(basis);
-            break;
-        default:
-            return -1;
-    }
-
-    libcheck(*ws, "*_alloc_and_init failed");
-    return 0;
-
-error:
-    return -1;
-}
-
 static int parse_basis_init_ws(OPT* opt)
 {
     debug("basis file: %s", opt->basis_file);
@@ -293,9 +237,9 @@ static int parse_basis_init_ws(OPT* opt)
     opt->basis = read_matrix(infile, opt->rows_as_basis);
     fclose(infile);
 
-    init_ws(&opt->solve, &opt->ws, opt->alg, opt->basis);
+    algorithm_get_fp_init_ws(&opt->solve, &opt->ws, opt->alg, opt->basis);
     if(opt->mode == MODE_COMPARE)
-        init_ws(&opt->solve_cmp, &opt->ws_cmp, opt->alg_cmp, opt->basis);
+        algorithm_get_fp_init_ws(&opt->solve_cmp, &opt->ws_cmp, opt->alg_cmp, opt->basis);
 
     //print_matrix(opt->basis);
 
@@ -305,31 +249,12 @@ error:
     return -1;
 }
 
-static void free_ws(void* ws, Algorithm alg)
-{
-    switch(alg)
-    {
-        case ALG_BABAI:
-            BABAI_WS_free(ws);
-            break;
-        case ALG_DPLANE:
-            DP_WS_free(ws);
-            break;
-        case ALG_SPHERE:
-        case ALG_SD_DP:
-            SD_WS_free(ws);
-            break;
-        default:
-            return;
-    }
-}
-
 static void free_basis_and_ws(OPT* opt)
 {
     gsl_matrix_free(opt->basis);
-    free_ws(opt->ws, opt->alg);
+    algorithm_free_ws(opt->ws, opt->alg);
     if(opt->mode == MODE_COMPARE)
-        free_ws(opt->ws_cmp, opt->alg_cmp);
+        algorithm_free_ws(opt->ws_cmp, opt->alg_cmp);
 }
 
 static int solve(FILE* outfile, OPT* opt)

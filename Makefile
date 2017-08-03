@@ -40,6 +40,9 @@ an-solve: $(SRCDIR)/an_solve_main.c $(TARGET)
 lsolve: $(SRCDIR)/lsolve_main.c $(TARGET)
 	$(CC) $(CFLAGS) $^ -o lsolve $(LIBS)
 
+lsim: $(SRCDIR)/lsim_main.c $(TARGET)
+	$(CC) $(CFLAGS) $^ -o lsim $(LIBS)
+
 rnd-point: $(SRCDIR)/rnd_point_main.c $(TARGET)
 	$(CC) $(CFLAGS) $^ -o rnd-point $(LIBS)
 
