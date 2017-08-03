@@ -12,5 +12,7 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_
 
 void spheredecode_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws);
 
+void sd_dp_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws);
+
 #endif /* SPHEREDECODE_H */
 

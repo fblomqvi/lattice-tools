@@ -37,12 +37,14 @@
 #define ALG_NAME_BABAI "babai"
 #define ALG_NAME_DPLANE "dplane"
 #define ALG_NAME_SPHERE "sphere"
+#define ALG_NAME_SD_DP "sphere-dp"
 
 typedef enum algorithm
 {
     ALG_BABAI = 1,
     ALG_DPLANE,
     ALG_SPHERE,
+    ALG_SD_DP,
 } Algorithm;
 
 typedef enum enum_mode
@@ -115,6 +117,7 @@ static int parse_alg(const char* alg)
     if(!strcmp(alg, ALG_NAME_BABAI)) return ALG_BABAI;
     if(!strcmp(alg, ALG_NAME_DPLANE)) return ALG_DPLANE;
     if(!strcmp(alg, ALG_NAME_SPHERE)) return ALG_SPHERE;
+    if(!strcmp(alg, ALG_NAME_SD_DP)) return ALG_SD_DP;
     return 0;
 }
 
@@ -265,6 +268,10 @@ static int init_ws(SOLVE_func* f, void** ws, Algorithm alg, const gsl_matrix* ba
             *f = spheredecode_g;
             *ws = SD_WS_alloc_and_init(basis);
             break;
+        case ALG_SD_DP:
+            *f = sd_dp_g;
+            *ws = SD_WS_alloc_and_init(basis);
+            break;
         default:
             return -1;
     }
@@ -309,6 +316,7 @@ static void free_ws(void* ws, Algorithm alg)
             DP_WS_free(ws);
             break;
         case ALG_SPHERE:
+        case ALG_SD_DP:
             SD_WS_free(ws);
             break;
         default:

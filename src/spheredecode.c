@@ -15,16 +15,28 @@ struct s_sd_ws
     double* s;
     double* x;
     double* y;
+    double* Rs;
     double* data;
     gsl_vector_view v_s;
     gsl_vector_view v_y;
     gsl_vector_view v_x;
-    gsl_vector_view Rs;
+    gsl_vector_view v_Rs;
     gsl_matrix_view m_Q;
     gsl_matrix_view m_R;
     gsl_matrix_view Q1;
     gsl_matrix_view Rsub;
+    int dp_bounds;
 };
+
+static void sd_dp_common(SD_WS* ws, const gsl_vector* t, double* d_sqr, size_t m);
+
+static void set_bounds_dp(SD_WS* ws, size_t k);
+static void set_bounds_sd(SD_WS* ws, size_t k);
+
+static void step_5a(SD_WS* ws, double* d_sqr, size_t m);
+static void step_5b(SD_WS* ws, size_t* k);
+
+static void darray_sub(double* a, double* b, size_t m);
 
 /*NOTE: n is used to denote the amount of rows of the basis matrix B and m for
  *      columns. This notation was chosen in order to be consistent with
@@ -51,11 +63,12 @@ SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
     ws->s = ws->yhat + m;
     ws->x = ws->s + m;
     ws->y = ws->x + m;
+    ws->Rs = ws->y + m;
 
     ws->v_s = gsl_vector_view_array(ws->s, m);
     ws->v_x = gsl_vector_view_array(ws->x, m);
     ws->v_y = gsl_vector_view_array(ws->y, m);
-    ws->Rs = gsl_vector_view_array(ws->y + m, m);
+    ws->v_Rs = gsl_vector_view_array(ws->Rs, m);
 
     ws->m_Q = gsl_matrix_view_array(ws->data, n, n);
     ws->m_R = gsl_matrix_view_array(ws->data + Q_size, n, m);
@@ -93,6 +106,7 @@ SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
 
     ws->Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
     ws->Rsub = gsl_matrix_submatrix(ws->R, 0, 0, m, m);
+    ws->dp_bounds = 0;
     return ws;
 
 error_e:
@@ -164,7 +178,103 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_
 {   
     assert(B->size1 == t->size);
     size_t m = B->size2;
+    double d_sqr;
+    sd_dp_common(ws, t, &d_sqr, m);
 
+    /*******************************************************************/
+    /* ACTUAL ALGORITHM STARTS HERE                                    */
+    /*******************************************************************/
+    
+    // Step 1: set initial values.
+    int set_new_bounds = 1;
+    size_t solutions = 0;
+    size_t k = m - 1;
+    ws->d2[k] = d_sqr;
+    ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
+
+    while(k < m)
+    {
+        if(set_new_bounds)
+        {
+            set_bounds_sd(ws, k);
+            set_new_bounds = 0;
+        }
+        else
+            ws->s[k] += 1.0;
+
+        if(ws->s[k] > ws->ub[k])
+            k++;
+        else
+        {
+            if(k == 0)
+            {
+                solutions++;
+                step_5a(ws, &d_sqr, m);
+            }
+            else 
+            {
+                step_5b(ws, &k);
+                set_new_bounds = 1;
+            }
+        }
+    }
+
+    gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
+    //fprintf(stderr, "SD: Tried %d points\n", solutions);
+}
+
+void sd_dp(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_WS *ws)
+{   
+    assert(B->size1 == t->size);
+    size_t m = B->size2;
+    double d_sqr;
+    sd_dp_common(ws, t, &d_sqr, m);
+
+    // Step 1: set initial values.
+    int set_new_bounds = 1;
+    size_t solutions = 0;
+    size_t k = m - 1;
+    ws->d2[k] = d_sqr;
+    ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
+
+    while(k < m)
+    {
+        if(set_new_bounds)
+        {
+            set_bounds_dp(ws, k);
+            set_new_bounds = 0;
+        }
+        else
+            ws->s[k] += 1.0;
+
+        if(ws->s[k] > ws->ub[k])
+            k++;
+        else
+        {
+            if(k == 0)
+            {
+                solutions++;
+                step_5a(ws, &d_sqr, m);
+            }
+            else 
+            {
+                step_5b(ws, &k);
+                set_new_bounds = 1;
+            }
+        }
+    }
+
+    gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
+    //fprintf(stderr, "SD: Tried %d points\n", solutions);
+}
+void spheredecode_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
+{ spheredecode(clp, t, B, ws); }
+
+void sd_dp_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
+{ sd_dp(clp, t, B, ws); }
+
+static void sd_dp_common(SD_WS* ws, const gsl_vector* t, double* d_sqr, size_t m)
+{
     // First we do Babai
     gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
     for(int k = m-1; k >= 0; k--)
@@ -183,82 +293,69 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_
     */
         
     // Calculate ||y-Rx||^2
-    double d_sqr;
-    gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix,
-            &ws->v_x.vector, 0, &ws->Rs.vector);
-    gsl_vector_sub(&ws->Rs.vector, &ws->v_y.vector);
-    gsl_blas_ddot(&ws->Rs.vector, &ws->Rs.vector, &d_sqr);
-
-    /*******************************************************************/
-    /* ACTUAL ALGORITHM STARTS HERE                                    */
-    /*******************************************************************/
-    
-    // Step 1: set initial values.
-    int set_new_bounds = 1;
-    size_t solutions = 0;
-    size_t k = m - 1;
-    ws->d2[k] = d_sqr;
-    ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
-
-    while(k < m)
-    {
-        if(set_new_bounds)
-        {
-            // Step 2: Calculate upper bound for s_k and set s_k to lower bound.
-            double Rkk = gsl_matrix_get(ws->R, k, k);
-            double d2_sqrt_div_rkk = sqrt(ws->d2[k]) / Rkk;
-            double yhat_div_rkk = ws->yhat[k] / Rkk;
-            ws->ub[k] = floor(d2_sqrt_div_rkk + yhat_div_rkk);
-            ws->s[k] = ceil(-d2_sqrt_div_rkk + yhat_div_rkk);
-            // Don't set new bounds on next iteration unless required by step 5b.
-            set_new_bounds = 0;
-        }
-        else
-            ws->s[k] += 1.0;    // Step 3
-
-        if(ws->s[k] > ws->ub[k])
-        {
-            // Step 4: Increase k by 1. If k = m + 1, the algorithm will
-            //         terminate (by the while loop).
-            k++;
-        }
-        else
-        {
-            // Step 5
-            if(k == 0)
-            {
-                // Step 5a: Solution found.
-                solutions++;
-
-                gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, 
-                            &ws->v_s.vector, 0, &ws->Rs.vector);
-                gsl_vector_sub(&ws->Rs.vector, &ws->v_y.vector);
-
-                double y_minus_Rs_len;
-                gsl_blas_ddot(&ws->Rs.vector, &ws->Rs.vector, &y_minus_Rs_len);
-
-                // If new s gives a better solution to the CVP, store it to best_s.
-                if(y_minus_Rs_len < d_sqr)
-                {
-                    gsl_vector_memcpy(&ws->v_x.vector, &ws->v_s.vector);
-                    d_sqr = y_minus_Rs_len;
-                }
-            }
-            else 
-            {
-                // Step 5b: Decrease k and calculate new ŷ_k and d_k^2
-                k--;
-                ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
-                ws->d2[k] = calc_d2(k, ws);
-                // Calculate new bounds for s_k.
-                set_new_bounds = 1;
-            }
-        }
-    }
-
-    gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
-    //fprintf(stderr, "SD: Tried %d points\n", solutions);
+    //gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_x.vector);
+    memcpy(ws->Rs, ws->x, m * sizeof(double));
+    gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
+                    &ws->Rsub.matrix, &ws->v_Rs.vector);
+    //gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
+    darray_sub(ws->Rs, ws->y, m);
+    gsl_blas_ddot(&ws->v_Rs.vector, &ws->v_Rs.vector, d_sqr);
 }
 
-void spheredecode_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
-{ spheredecode(clp, t, B, ws); }
+static inline void set_bounds_sd(SD_WS* ws, size_t k)
+{
+    double Rkk = gsl_matrix_get(ws->R, k, k);
+    double d2_sqrt_div_rkk = sqrt(ws->d2[k]) / Rkk;
+    double yhat_div_rkk = ws->yhat[k] / Rkk;
+    ws->ub[k] = floor(d2_sqrt_div_rkk + yhat_div_rkk);
+    ws->s[k] = ceil(-d2_sqrt_div_rkk + yhat_div_rkk);
+}
+
+static inline void set_bounds_dp(SD_WS* ws, size_t k)
+{
+    double Rkk = gsl_matrix_get(ws->R, k, k);
+    double d2_sqrt_div_rkk = sqrt(ws->d2[k]) / Rkk;
+    double yhat_div_rkk = ws->yhat[k] / Rkk;
+    double max1 = floor(d2_sqrt_div_rkk + yhat_div_rkk);
+    double min1 = ceil(-d2_sqrt_div_rkk + yhat_div_rkk);
+    double min2 = floor(yhat_div_rkk);
+    double max2 = min2 + 1;
+    ws->s[k] = min1 < min2 ? min2 : min1;
+    ws->ub[k] = max1 > max2 ? max2 : max1;
+}
+
+static inline void step_5a(SD_WS* ws, double* d_sqr, size_t m)
+{
+    // Step 5a: Solution found.
+    //gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_s.vector);
+    memcpy(ws->Rs, ws->s, m * sizeof(double));
+    gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
+                    &ws->Rsub.matrix, &ws->v_Rs.vector);
+    //gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
+    darray_sub(ws->Rs, ws->y, m);
+
+    double y_minus_Rs_len;
+    gsl_blas_ddot(&ws->v_Rs.vector, &ws->v_Rs.vector, &y_minus_Rs_len);
+
+    // If new s gives a better solution to the CVP, store it to x.
+    if(y_minus_Rs_len < *d_sqr)
+    {
+        //gsl_vector_memcpy(&ws->v_x.vector, &ws->v_s.vector);
+        memcpy(ws->x, ws->s, m * sizeof(double));
+        *d_sqr = y_minus_Rs_len;
+    }
+}
+
+static inline void step_5b(SD_WS* ws, size_t* k)
+{
+    // Step 5b: Decrease k and calculate new ŷ_k and d_k^2
+    (*k)--;
+    ws->yhat[*k] = calc_yhat(*k, ws->R, ws->y, ws->s);
+    ws->d2[*k] = calc_d2(*k, ws);
+}
+
+static void darray_sub(double* a, double* b, size_t m)
+{ 
+    for(size_t i = 0; i < m; i++)
+        a[i] -= b[i];
+}
