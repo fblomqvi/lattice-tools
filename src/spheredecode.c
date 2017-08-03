@@ -1,10 +1,30 @@
+#include "dbg.h"
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
-#include "babai.h"
 #include "spheredecode.h"
-#include "utility.h"
 #include <gsl/gsl_blas.h>
+
+struct s_sd_ws
+{
+    gsl_matrix* Q;
+    gsl_matrix* R;
+    double* ub;
+    double* d2;
+    double* yhat;
+    double* s;
+    double* x;
+    double* y;
+    double* data;
+    gsl_vector_view v_s;
+    gsl_vector_view v_y;
+    gsl_vector_view v_x;
+    gsl_vector_view Rs;
+    gsl_matrix_view m_Q;
+    gsl_matrix_view m_R;
+    gsl_matrix_view Q1;
+    gsl_matrix_view Rsub;
+};
 
 /*NOTE: n is used to denote the amount of rows of the basis matrix B and m for
  *      columns. This notation was chosen in order to be consistent with
@@ -13,81 +33,83 @@
 
 SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
 {
-    // Set n and m to be the amounts of rows and columns of lattice basis B.
-    
-    int n = B->size1;
-    int m = B->size2;
-    assert(n >= m);
-    //assert(t->size == n);
-    
     SD_WS* ws = malloc(sizeof(SD_WS));
+    libcheck_mem(ws);
 
-    /* Allocate memory for the spheredecoder function.
-     * Matrices Q and R store the QR decomposition of B.
-     * y is later set to (Q_1^T)*x.
-     * Integer vector s stores possible solutions for min( ||t-B*s|| ), 
-     * best_s stores the best solution for the CVP found so far.
-     * ub stores the upper bound values used in calculating the interval for s_k.
-     * d2 and yhat are used in determining the interval in which s_k must be (see
-     * calc_d2 and calc_yhat)
-     * Rs and Rbest_s store values used to determine wether a new solution is
-     * better than the previous best one.*/
- 
-    ws->Q = gsl_matrix_alloc(n,n);
-    ws->R = gsl_matrix_alloc(n,m);    
-    ws->y = gsl_vector_alloc(m);
-    ws->best_s = gsl_vector_alloc(m);
-    ws->s = gsl_vector_alloc(m);
-    ws->ub = malloc(m * sizeof(double));
-    ws->d2 = malloc(m * sizeof(double));
-    ws->yhat = malloc(m * sizeof(double));
-    ws->Rs = gsl_vector_alloc(m);
-    ws->Rbest_s = gsl_vector_alloc(m);
-    ws->babai_clp = gsl_vector_alloc(n);
-    ws->babai_ws = BABAI_WS_alloc_and_init(B);
+    size_t n = B->size1;
+    size_t m = B->size2;
+    assert(n >= m);
+
+    size_t Q_size = n * n;
+    size_t R_size = n * m;
+    ws->data = malloc((Q_size + R_size + 7 * m) * sizeof(double));
+    llibcheck_mem(ws->data, error_a);
+
+    ws->ub = ws->data + Q_size + R_size;
+    ws->d2 = ws->ub + m;
+    ws->yhat = ws->d2 + m;
+    ws->s = ws->yhat + m;
+    ws->x = ws->s + m;
+    ws->y = ws->x + m;
+
+    ws->v_s = gsl_vector_view_array(ws->s, m);
+    ws->v_x = gsl_vector_view_array(ws->x, m);
+    ws->v_y = gsl_vector_view_array(ws->y, m);
+    ws->Rs = gsl_vector_view_array(ws->y + m, m);
+
+    ws->m_Q = gsl_matrix_view_array(ws->data, n, n);
+    ws->m_R = gsl_matrix_view_array(ws->data + Q_size, n, m);
+    ws->Q = &ws->m_Q.matrix;
+    ws->R = &ws->m_R.matrix;
 
     /* Tau is a vector used only for the gsl QR decomposition function.
      * The size of tau must be min of n,m; this is always m for now.*/
-    int tausize = (n < m) ? n : m;
+    size_t tausize = (n < m) ? n : m;
     /* Compute the QR-decomposition of lattice basis B and store it to matrices
      * Q and R, don't alter B. */
-    gsl_matrix *B_copy = gsl_matrix_alloc(n, m);
+    gsl_matrix* B_copy = gsl_matrix_alloc(n, m);
+    llibcheck_mem(B_copy, error_d);
+
+    gsl_vector* tau = gsl_vector_alloc(tausize);
+    llibcheck_mem(tau, error_e);
+
     gsl_matrix_memcpy(B_copy, B);
-    gsl_vector *tau = gsl_vector_alloc(tausize);
     gsl_linalg_QR_decomp(B_copy, tau);
     gsl_linalg_QR_unpack(B_copy, tau, ws->Q, ws->R);
     gsl_vector_free(tau);
     gsl_matrix_free(B_copy);
 
     // Make the diagonal of R positive, as required by the algorithm.
-    for (int i = 0; i < m; i++) {
-        if (gsl_matrix_get(ws->R, i, i) < 0) {
+    for(size_t i = 0; i < m; i++)
+    {
+        if(gsl_matrix_get(ws->R, i, i) < 0)
+        {
             gsl_vector_view Rrow = gsl_matrix_row(ws->R, i);
             gsl_vector_view Qcol = gsl_matrix_column(ws->Q,i);
             gsl_vector_scale(&Rrow.vector, -1);
             gsl_vector_scale(&Qcol.vector, -1);
         }
     }
-     
+
+    ws->Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
+    ws->Rsub = gsl_matrix_submatrix(ws->R, 0, 0, m, m);
     return ws;
+
+error_e:
+    gsl_matrix_free(B_copy);
+error_d:
+    free(ws->data);
+error_a:
+    free(ws);
+error:
+    return NULL;
 }
 
 void SD_WS_free(SD_WS *ws)
 {
     if(ws)
     {
-        gsl_vector_free(ws->best_s);
-        gsl_vector_free(ws->s);
-        gsl_vector_free(ws->y);
-        gsl_matrix_free(ws->Q);
-        gsl_matrix_free(ws->R);
-        free(ws->ub);
-        free(ws->d2);
-        free(ws->yhat);
-        gsl_vector_free(ws->Rs);
-        gsl_vector_free(ws->Rbest_s);
-        gsl_vector_free(ws->babai_clp);
-        BABAI_WS_free(ws->babai_ws);
+        free(ws->data);
         free(ws);
     }
 }
@@ -102,13 +124,14 @@ void SD_WS_free(SD_WS *ws)
  *   [ 0  0  0  0 d4]      [s4]
  */
 
-double calc_yhat(int k, SD_WS *ws) {
-    int m = ws->R->size2;
+static double calc_yhat(size_t k, const gsl_matrix* R, const double* y, const double* s)
+{
+    size_t m = R->size2;
     double sum = 0;
-    for (int j = k+1; j < m; j++) {
-        sum += gsl_matrix_get(ws->R, k, j) * gsl_vector_get(ws->s, j);
-    }
-    return gsl_vector_get(ws->y, k) - sum;
+    for (size_t j = k+1; j < m; j++)
+        sum += gsl_matrix_get(R, k, j) * s[j];
+
+    return y[k] - sum;
 }
 
 /* Calculate and return the value of d_k^2. s_k has to satisfy
@@ -116,10 +139,11 @@ double calc_yhat(int k, SD_WS *ws) {
  * hypersphere and d_k^2 is calculated as
  * d_k^2 = d_(k+1)^2 - (ŷ_(k+1) - r(k+1,k+1)*s_(k+1))^2
  */
-double calc_d2(int k, SD_WS *ws) {
-    double res = ws->yhat[k+1] - gsl_matrix_get(ws->R, k+1, k+1) * gsl_vector_get(ws->s, k+1);
-    res = -1*res*res + ws->d2[k+1];
-    return res;
+static double calc_d2(size_t k, SD_WS* ws)
+{
+    size_t idx = k + 1;
+    double res = ws->yhat[idx] - gsl_matrix_get(ws->R, idx, idx) * ws->s[idx];
+    return -1 * res * res + ws->d2[idx];
 }
 
 /* Finds the closest vector in the lattice with basis B to the target vector t
@@ -136,18 +160,17 @@ double calc_d2(int k, SD_WS *ws) {
  * The algorithm terminates when s_(m-1) (the last value of s) becomes greater than
  * its upper bound; all possible solutions have been found.
  */
-void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, double d, SD_WS *ws)
+void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_WS *ws)
 {   
-    int n = B->size1;
-    int m = B->size2;
+    assert(B->size1 == t->size);
+    size_t m = B->size2;
 
-    /* Split Q to Q1 and Q2 for the following vector operations. (If Q2 doesn't
-     * exist, then Q1 = Q) */
-    gsl_matrix_view Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
+    // First we do Babai
+    gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
+    for(int k = m-1; k >= 0; k--)
+        ws->x[k] = round(calc_yhat(k, ws->R, ws->y, ws->x) / gsl_matrix_get(ws->R, k, k));
     
-    // Set y = (Q1^T)*x.
-    gsl_blas_dgemv(CblasTrans, 1, &Q1.matrix, t, 0, ws->y);
-    
+    /*
     // Set Q2Tx_len2 = ||(Q2^T)*x||^2.
     double Q2Tx_len2 = 0;
     if (n > m) {
@@ -157,103 +180,85 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, dou
         gsl_blas_ddot(Q2Tx, Q2Tx, &Q2Tx_len2);
         gsl_vector_free(Q2Tx);
     }
+    */
         
+    // Calculate ||y-Rx||^2
+    double d_sqr;
+    gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix,
+            &ws->v_x.vector, 0, &ws->Rs.vector);
+    gsl_vector_sub(&ws->Rs.vector, &ws->v_y.vector);
+    gsl_blas_ddot(&ws->Rs.vector, &ws->Rs.vector, &d_sqr);
+
     /*******************************************************************/
     /* ACTUAL ALGORITHM STARTS HERE                                    */
     /*******************************************************************/
     
     // Step 1: set initial values.
-    int k = m-1;
-    ws->d2[k] = d*d - Q2Tx_len2;
-    ws->yhat[k] = calc_yhat(k, ws);
-    
     int set_new_bounds = 1;
-    int solutions = 0;
-    
-    if (ws->d2[k] < 0) {
-        // If B is not a square matrix, it is possible for the initial distance
-        // requirement to be negative. In this case, terminate.
-        fprintf(stderr, "Initial radius too small. Terminating. (d = %f, d2_k = %f)\n", d, ws->d2[k]);
-        //res = NULL;
-    } else {
-        while (k < m) {
-            if (set_new_bounds) {
-                // Step 2: Calculate upper bound for s_k and set s_k to lower bound.
-                double Rkk = gsl_matrix_get(ws->R, k, k);
-                ws->ub[k] = floor( (sqrt(ws->d2[k]) + ws->yhat[k])/Rkk );
-                gsl_vector_set(ws->s, k, ceil( (-sqrt(ws->d2[k]) + ws->yhat[k])/Rkk ) - 1);
-                // Don't set new bounds on next iteration unless required by step 5b.
-                set_new_bounds = 0;
-            }
+    size_t solutions = 0;
+    size_t k = m - 1;
+    ws->d2[k] = d_sqr;
+    ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
 
-            // Step 3: Set s_k = s_k + 1.
-            gsl_vector_set(ws->s, k, gsl_vector_get(ws->s, k) + 1);
+    while(k < m)
+    {
+        if(set_new_bounds)
+        {
+            // Step 2: Calculate upper bound for s_k and set s_k to lower bound.
+            double Rkk = gsl_matrix_get(ws->R, k, k);
+            double d2_sqrt_div_rkk = sqrt(ws->d2[k]) / Rkk;
+            double yhat_div_rkk = ws->yhat[k] / Rkk;
+            ws->ub[k] = floor(d2_sqrt_div_rkk + yhat_div_rkk);
+            ws->s[k] = ceil(-d2_sqrt_div_rkk + yhat_div_rkk);
+            // Don't set new bounds on next iteration unless required by step 5b.
+            set_new_bounds = 0;
+        }
+        else
+            ws->s[k] += 1.0;    // Step 3
 
-            if (gsl_vector_get(ws->s, k) > ws->ub[k]) {
-                // Step 4: Increase k by 1. If k = m + 1, the algorithm will
-                //         terminate (by the while loop).
-                k++;
-            } else {
-                // Step 5
-                if (k == 0) {
-                    // Step 5a: Solution found.
-                    solutions++;
+        if(ws->s[k] > ws->ub[k])
+        {
+            // Step 4: Increase k by 1. If k = m + 1, the algorithm will
+            //         terminate (by the while loop).
+            k++;
+        }
+        else
+        {
+            // Step 5
+            if(k == 0)
+            {
+                // Step 5a: Solution found.
+                solutions++;
 
-                    // Rs = non-zero part of R times s; Rbest_s = non-zero part of R times best_s. 
-                    gsl_matrix_view Rsub = gsl_matrix_submatrix(ws->R, 0, 0, m, m);
+                gsl_blas_dgemv(CblasNoTrans, 1, &ws->Rsub.matrix, 
+                            &ws->v_s.vector, 0, &ws->Rs.vector);
+                gsl_vector_sub(&ws->Rs.vector, &ws->v_y.vector);
 
-                    if (solutions == 1) {
-                        // First found solution is stored to best_s and Rbest_s is set to R*best_s-y
-                        gsl_vector_memcpy(ws->best_s, ws->s);
-                        gsl_blas_dgemv(CblasNoTrans, 1, &Rsub.matrix, ws->best_s, 0, ws->Rbest_s);
-                        gsl_vector_sub(ws->Rbest_s, ws->y);
-                    } else {
-                        gsl_blas_dgemv(CblasNoTrans, 1, &Rsub.matrix, ws->s, 0, ws->Rs);
-                        gsl_vector_sub(ws->Rs, ws->y);
+                double y_minus_Rs_len;
+                gsl_blas_ddot(&ws->Rs.vector, &ws->Rs.vector, &y_minus_Rs_len);
 
-                        // Rs = R*s-y; Rbest_s = R*best_s-y
-                        double y_minus_Rs_len;
-                        double y_minus_Rbest_s_len;
-                        // y_minus_Rs_len = ||Rs||^2; y_minus_Rbest_s_len = ||Rbest_s||^2
-                        gsl_blas_ddot(ws->Rs, ws->Rs, &y_minus_Rs_len);
-                        gsl_blas_ddot(ws->Rbest_s, ws->Rbest_s, &y_minus_Rbest_s_len);
-
-                        // If new s gives a better solution to the CVP, store it to best_s.
-                        if (y_minus_Rs_len < y_minus_Rbest_s_len) {
-                            gsl_vector_memcpy(ws->best_s, ws->s);
-                            gsl_vector_memcpy(ws->Rbest_s, ws->Rs);
-                        }
-                    }
-                } else {
-                    // Step 5b: Decrease k and calculate new ŷ_k and d_k^2
-                    k--;
-                    ws->yhat[k] = calc_yhat(k, ws);
-                    ws->d2[k] = calc_d2(k, ws);
-                    // Calculate new bounds for s_k.
-                    set_new_bounds = 1;
+                // If new s gives a better solution to the CVP, store it to best_s.
+                if(y_minus_Rs_len < d_sqr)
+                {
+                    gsl_vector_memcpy(&ws->v_x.vector, &ws->v_s.vector);
+                    d_sqr = y_minus_Rs_len;
                 }
             }
+            else 
+            {
+                // Step 5b: Decrease k and calculate new ŷ_k and d_k^2
+                k--;
+                ws->yhat[k] = calc_yhat(k, ws->R, ws->y, ws->s);
+                ws->d2[k] = calc_d2(k, ws);
+                // Calculate new bounds for s_k.
+                set_new_bounds = 1;
+            }
         }
-
-        /* Calculate the closest lattice vector to x, i.e., B*s using the solution
-         * of min(||t-B*s||) and store it to res. 
-         */
-        gsl_blas_dgemv(CblasNoTrans, 1, B, ws->best_s, 0, clp);
     }
+
+    gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
+    //fprintf(stderr, "SD: Tried %d points\n", solutions);
 }
 
 void spheredecode_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
-{ 
-    SD_WS *sd_ws = (SD_WS*) ws;
-    babai_g(sd_ws->babai_clp, t, B, sd_ws->babai_ws);
-    gsl_vector_sub(sd_ws->babai_clp, t);
-    double d = 0;
-    gsl_blas_ddot(sd_ws->babai_clp, sd_ws->babai_clp, &d);
-    d = sqrt(d);
-    if (d == 0) {
-        d = 0.001;
-    } else {
-        d = 1.001*d;
-    }
-    spheredecode(clp, t, B, d, sd_ws);
-}
+{ spheredecode(clp, t, B, ws); }
