@@ -167,5 +167,50 @@ void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_W
     gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
 }
 
+static inline void Rx_sub_y(double* Rs, const gsl_matrix* R,
+                            const double* x, const double* y)
+{
+    Rs[0] = x[0] * gsl_matrix_get(R, 0, 0)
+                + x[1] * gsl_matrix_get(R, 0, 1) - y[0];
+    Rs[1] = x[1] * gsl_matrix_get(R, 1, 1) - y[1];
+}
+
+static inline double dist_sqr_2d(const double* v)
+{ return v[0] * v[0] + v[1] * v[1]; }
+
+void doubleplane_2d(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_WS *ws)
+{
+    gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
+
+    ws->s[1] = floor(ws->y[1] / gsl_matrix_get(ws->R, 1, 1));
+    double yhat = ws->y[0] - gsl_matrix_get(ws->R, 0, 1) * ws->s[1];
+    ws->s[0] = round(yhat / gsl_matrix_get(ws->R, 0, 0));
+
+    ws->x[1] = ws->s[1] + 1.0;
+    yhat -= gsl_matrix_get(ws->R, 0, 1);
+    ws->x[0] = round(yhat / gsl_matrix_get(ws->R, 0, 0));
+
+    Rx_sub_y(ws->Rs, ws->R, ws->s, ws->y);
+    double dist1 = dist_sqr_2d(ws->Rs);
+
+    Rx_sub_y(ws->Rs, ws->R, ws->x, ws->y);
+    double dist2 = dist_sqr_2d(ws->Rs);
+
+    if(dist2 < dist1)
+        gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
+    else
+        gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_s.vector, 0, clp);
+}
+
 void doubleplane_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
-{ doubleplane(clp, t, B, ws); }
+{
+    switch(B->size2)
+    {
+        case 2:
+            doubleplane_2d(clp, t, B, ws);
+            break;
+        default:
+            doubleplane(clp, t, B, ws);
+            break;
+    }
+}
