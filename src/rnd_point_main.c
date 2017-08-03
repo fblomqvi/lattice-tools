@@ -128,7 +128,7 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
         {"readable-output", no_argument, NULL, 'R'},
         {"sloppy", no_argument, NULL, 's'},
         {"seed", required_argument, NULL, 'S'},
-        {"force-zero", no_argument, NULL, 'Z'},
+        {"force-zero-binary", no_argument, NULL, 'Z'},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'V'},
         {0, 0, 0, 0}
