@@ -15,12 +15,10 @@ struct s_sd_ws
     double* s;
     double* x;
     double* y;
-    double* Rs;
     double* data;
     gsl_vector_view v_s;
     gsl_vector_view v_y;
     gsl_vector_view v_x;
-    gsl_vector_view v_Rs;
     gsl_matrix_view m_Q;
     gsl_matrix_view m_R;
     gsl_matrix_view Q1;
@@ -53,7 +51,7 @@ SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
 
     size_t Q_size = n * n;
     size_t R_size = n * m;
-    ws->data = malloc((Q_size + R_size + 7 * m) * sizeof(double));
+    ws->data = malloc((Q_size + R_size + 6 * m) * sizeof(double));
     llibcheck_mem(ws->data, error_a);
 
     ws->ub = ws->data + Q_size + R_size;
@@ -62,12 +60,10 @@ SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
     ws->s = ws->yhat + m;
     ws->x = ws->s + m;
     ws->y = ws->x + m;
-    ws->Rs = ws->y + m;
 
     ws->v_s = gsl_vector_view_array(ws->s, m);
     ws->v_x = gsl_vector_view_array(ws->x, m);
     ws->v_y = gsl_vector_view_array(ws->y, m);
-    ws->v_Rs = gsl_vector_view_array(ws->Rs, m);
 
     ws->m_Q = gsl_matrix_view_array(ws->data, n, n);
     ws->m_R = gsl_matrix_view_array(ws->data + Q_size, n, m);
@@ -292,12 +288,12 @@ static void sd_dp_common(SD_WS* ws, const gsl_vector* t, double* d_sqr, size_t m
         
     // Calculate ||y-Rx||^2
     //gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_x.vector);
-    memcpy(ws->Rs, ws->x, m * sizeof(double));
+    memcpy(ws->s, ws->x, m * sizeof(double));
     gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
-                    &ws->Rsub.matrix, &ws->v_Rs.vector);
+                    &ws->Rsub.matrix, &ws->v_s.vector);
     //gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
-    darray_sub(ws->Rs, ws->y, m);
-    gsl_blas_ddot(&ws->v_Rs.vector, &ws->v_Rs.vector, d_sqr);
+    darray_sub(ws->s, ws->y, m);
+    gsl_blas_ddot(&ws->v_s.vector, &ws->v_s.vector, d_sqr);
 }
 
 static inline void set_bounds_sd(SD_WS* ws, size_t k)
