@@ -139,11 +139,11 @@ void SD_WS_free(SD_WS *ws)
 static double calc_yhat(size_t k, const gsl_matrix* R, const double* y, const double* s)
 {
     size_t m = R->size2;
-    double sum = 0;
+    double sum = y[k];
     for (size_t j = k+1; j < m; j++)
-        sum += gsl_matrix_get(R, k, j) * s[j];
+        sum -= gsl_matrix_get(R, k, j) * s[j];
 
-    return y[k] - sum;
+    return sum;
 }
 
 /* Calculate and return the value of d_k^2. s_k has to satisfy
@@ -155,7 +155,7 @@ static double calc_d2(size_t k, SD_WS* ws)
 {
     size_t idx = k + 1;
     double res = ws->yhat[idx] - gsl_matrix_get(ws->R, idx, idx) * ws->s[idx];
-    return -1 * res * res + ws->d2[idx];
+    return ws->d2[idx] - res * res;
 }
 
 /* Finds the closest vector in the lattice with basis B to the target vector t
@@ -325,15 +325,8 @@ static inline void set_bounds_dp(SD_WS* ws, size_t k)
 static inline void step_5a(SD_WS* ws, double* d_sqr, size_t m)
 {
     // Step 5a: Solution found.
-    //gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_s.vector);
-    memcpy(ws->Rs, ws->s, m * sizeof(double));
-    gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
-                    &ws->Rsub.matrix, &ws->v_Rs.vector);
-    //gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
-    darray_sub(ws->Rs, ws->y, m);
-
-    double y_minus_Rs_len;
-    gsl_blas_ddot(&ws->v_Rs.vector, &ws->v_Rs.vector, &y_minus_Rs_len);
+    double res = ws->yhat[0] - gsl_matrix_get(ws->R, 0, 0) * ws->s[0];
+    double y_minus_Rs_len = ws->d2[m-1] - ws->d2[0] + res * res;
 
     // If new s gives a better solution to the CVP, store it to x.
     if(y_minus_Rs_len < *d_sqr)
