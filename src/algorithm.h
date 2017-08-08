@@ -24,6 +24,7 @@
 #define ALG_NAME_DPLANE "dplane"
 #define ALG_NAME_SPHERE "sphere"
 #define ALG_NAME_SD_DP "sphere-dp"
+#define ALG_NAME_SD_SE "sphere-se"
 
 typedef enum algorithm
 {
@@ -31,6 +32,7 @@ typedef enum algorithm
     ALG_DPLANE,
     ALG_SPHERE,
     ALG_SD_DP,
+    ALG_SD_SE,
 } Algorithm;
 
 typedef void (*SOLVE_func)(gsl_vector*, const gsl_vector*, const gsl_matrix*, void*);

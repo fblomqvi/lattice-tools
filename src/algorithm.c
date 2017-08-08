@@ -20,6 +20,7 @@
 #include "babai.h"
 #include "doubleplane.h"
 #include "spheredecode.h"
+#include "sphere_se.h"
 
 int algorithm_parse_name(const char* alg)
 {
@@ -27,6 +28,7 @@ int algorithm_parse_name(const char* alg)
     if(!strcmp(alg, ALG_NAME_DPLANE)) return ALG_DPLANE;
     if(!strcmp(alg, ALG_NAME_SPHERE)) return ALG_SPHERE;
     if(!strcmp(alg, ALG_NAME_SD_DP)) return ALG_SD_DP;
+    if(!strcmp(alg, ALG_NAME_SD_SE)) return ALG_SD_SE;
     return 0;
 }
 
@@ -50,6 +52,10 @@ int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws,
         case ALG_SD_DP:
             *f = sd_dp_g;
             *ws = SD_WS_alloc_and_init(basis);
+            break;
+        case ALG_SD_SE:
+            *f = sphere_se_g;
+            *ws = SDSE_WS_alloc_and_init(basis);
             break;
         default:
             return -1;
@@ -75,6 +81,9 @@ void algorithm_free_ws(void* ws, Algorithm alg)
         case ALG_SPHERE:
         case ALG_SD_DP:
             SD_WS_free(ws);
+            break;
+        case ALG_SD_SE:
+            SDSE_WS_free(ws);
             break;
         default:
             return;
