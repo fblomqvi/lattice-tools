@@ -16,7 +16,6 @@ struct s_sdse_ws
     double* y;
     double* step;
     double* data;
-    gsl_vector_view v_s;
     gsl_vector_view v_y;
     gsl_vector_view v_x;
     gsl_matrix_view m_Q;
@@ -45,7 +44,6 @@ SDSE_WS* SDSE_WS_alloc_and_init(const gsl_matrix* B)
     ws->y = ws->x + m;
     ws->step = ws->y + m;
 
-    ws->v_s = gsl_vector_view_array(ws->s, m);
     ws->v_x = gsl_vector_view_array(ws->x, m);
     ws->v_y = gsl_vector_view_array(ws->y, m);
 
