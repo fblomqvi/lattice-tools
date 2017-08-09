@@ -124,25 +124,10 @@ void doubleplane_helper(DP_WS* ws, size_t m, double dist)
         ws->s[m] = round(e);
         double d = (e - ws->s[m]) * gsl_matrix_get(ws->R, m, m);
         double new_dist = dist + d * d;
-        debug("new_dist: %f", new_dist);
         if(new_dist < ws->dist_min)
         {
-            debug("new_dist < ws->dist_min, ws>-s[0]: %f", ws->s[0]);
             memcpy(ws->x, ws->s, ws->m * sizeof(double));
             ws->dist_min = new_dist;
-            /*
-            // Caclulate ||y-Rs|| and replace ws->x with the new value if needed.
-            gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_s.vector);
-            gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
-                            ws->R, &ws->v_Rs.vector);
-            gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
-            gsl_blas_ddot(&ws->v_Rs.vector, &ws->v_Rs.vector, &ws->dist);
-            if(ws->dist < ws->dist_min)
-            {
-                ws->dist_min = ws->dist;
-                gsl_vector_memcpy(&ws->v_x.vector, &ws->v_s.vector);
-            }
-            */
         }
     }
     else
