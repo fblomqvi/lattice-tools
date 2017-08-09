@@ -168,19 +168,34 @@ void doubleplane_2d(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, D
 {
     gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
 
-    ws->s[1] = floor(ws->y[1] / gsl_matrix_get(ws->R, 1, 1));
+    /*
+    double e = calc_yhat(m, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, m, m);
+    ws->s[m] = floor(e);
+    double d = (e - ws->s[m]) * gsl_matrix_get(ws->R, m, m);
+    doubleplane_helper(ws, m-1, dist + d * d);
+    */
+    double e1 = ws->y[1] / gsl_matrix_get(ws->R, 1, 1);
+    ws->s[1] = floor(e1);
+    double d1 = (e1 - ws->s[1]) * gsl_matrix_get(ws->R, 1, 1);
+
     double yhat = ws->y[0] - gsl_matrix_get(ws->R, 0, 1) * ws->s[1];
-    ws->s[0] = round(yhat / gsl_matrix_get(ws->R, 0, 0));
+    double e2 = yhat / gsl_matrix_get(ws->R, 0, 0);
+    ws->s[0] = round(e2);
+    double d2 = (e2 - ws->s[0]) * gsl_matrix_get(ws->R, 0, 0);
+    double dist1 = d1 * d1 + d2 * d2;
 
     ws->x[1] = ws->s[1] + 1.0;
+    d1 = (e1 - ws->x[1]) * gsl_matrix_get(ws->R, 1, 1);
     yhat -= gsl_matrix_get(ws->R, 0, 1);
-    ws->x[0] = round(yhat / gsl_matrix_get(ws->R, 0, 0));
+    e2 = yhat / gsl_matrix_get(ws->R, 0, 0);
+    ws->x[0] = round(e2);
+    d2 = (e2 - ws->x[0]) * gsl_matrix_get(ws->R, 0, 0);
+    double dist2 = d1 * d1 + d2 * d2;
 
-    Rx_sub_y(ws->Rs, ws->R, ws->s, ws->y);
-    double dist1 = dist_sqr_2d(ws->Rs);
+    //Rx_sub_y(ws->Rs, ws->R, ws->s, ws->y);
 
-    Rx_sub_y(ws->Rs, ws->R, ws->x, ws->y);
-    double dist2 = dist_sqr_2d(ws->Rs);
+    //Rx_sub_y(ws->Rs, ws->R, ws->x, ws->y);
+    //double dist2 = dist_sqr_2d(ws->Rs);
 
     if(dist2 < dist1)
         gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
