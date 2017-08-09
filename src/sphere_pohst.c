@@ -310,17 +310,6 @@ static void sd_dp_common(SD_WS* ws, const gsl_vector* t, double* d_sqr, size_t m
         gsl_vector_free(Q2Tx);
     }
     */
-        
-    /*
-    // Calculate ||y-Rx||^2
-    //gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_x.vector);
-    memcpy(ws->s, ws->x, m * sizeof(double));
-    gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
-                    &ws->Rsub.matrix, &ws->v_s.vector);
-    //gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
-    darray_sub(ws->s, ws->y, m);
-    gsl_blas_ddot(&ws->v_s.vector, &ws->v_s.vector, d_sqr);
-    */
 }
 
 static inline void set_bounds_sd(SD_WS* ws, size_t k)
