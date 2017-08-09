@@ -287,10 +287,17 @@ void sd_dp_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws
 
 static void sd_dp_common(SD_WS* ws, const gsl_vector* t, double* d_sqr, size_t m)
 {
-    // First we do Babai
+    // First we do Babai and calculate the distance to the Babai point
     gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
+    double dist = 0.0;
     for(int k = m-1; k >= 0; k--)
-        ws->x[k] = round(calc_yhat(k, ws->R, ws->y, ws->x) / gsl_matrix_get(ws->R, k, k));
+    {
+        double e = calc_yhat(k, ws->R, ws->y, ws->x) / gsl_matrix_get(ws->R, k, k);
+        ws->x[k] = round(e);
+        double d = (e - ws->x[k]) * gsl_matrix_get(ws->R, k, k);
+        dist += d * d;
+    }
+    *d_sqr = dist;
     
     /*
     // Set Q2Tx_len2 = ||(Q2^T)*x||^2.
@@ -304,6 +311,7 @@ static void sd_dp_common(SD_WS* ws, const gsl_vector* t, double* d_sqr, size_t m
     }
     */
         
+    /*
     // Calculate ||y-Rx||^2
     //gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_x.vector);
     memcpy(ws->s, ws->x, m * sizeof(double));
@@ -312,6 +320,7 @@ static void sd_dp_common(SD_WS* ws, const gsl_vector* t, double* d_sqr, size_t m
     //gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
     darray_sub(ws->s, ws->y, m);
     gsl_blas_ddot(&ws->v_s.vector, &ws->v_s.vector, d_sqr);
+    */
 }
 
 static inline void set_bounds_sd(SD_WS* ws, size_t k)
