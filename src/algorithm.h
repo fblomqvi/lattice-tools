@@ -22,6 +22,7 @@
 
 #define ALG_NAME_BABAI "babai"
 #define ALG_NAME_DPLANE "dplane"
+#define ALG_NAME_DPLANE_VANILLA "dplane-vanilla"
 #define ALG_NAME_SPHERE "sphere"
 #define ALG_NAME_SD_DP "sphere-dp"
 #define ALG_NAME_SD_SE "sphere-se"
@@ -30,6 +31,7 @@ typedef enum algorithm
 {
     ALG_BABAI = 1,
     ALG_DPLANE,
+    ALG_DPLANE_VANILLA,
     ALG_SPHERE,
     ALG_SD_DP,
     ALG_SD_SE,

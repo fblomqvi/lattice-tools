@@ -26,6 +26,7 @@ int algorithm_parse_name(const char* alg)
 {
     if(!strcmp(alg, ALG_NAME_BABAI)) return ALG_BABAI;
     if(!strcmp(alg, ALG_NAME_DPLANE)) return ALG_DPLANE;
+    if(!strcmp(alg, ALG_NAME_DPLANE_VANILLA)) return ALG_DPLANE_VANILLA;
     if(!strcmp(alg, ALG_NAME_SPHERE)) return ALG_SPHERE;
     if(!strcmp(alg, ALG_NAME_SD_DP)) return ALG_SD_DP;
     if(!strcmp(alg, ALG_NAME_SD_SE)) return ALG_SD_SE;
@@ -42,7 +43,11 @@ int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws,
             *ws = BABAI_WS_alloc_and_init(basis);
             break;
         case ALG_DPLANE:
-            *f = doubleplane_g;
+            *f = dplane_g;
+            *ws = DP_WS_alloc_and_init(basis);
+            break;
+        case ALG_DPLANE_VANILLA:
+            *f = dplane_vanilla_g;
             *ws = DP_WS_alloc_and_init(basis);
             break;
         case ALG_SPHERE:
