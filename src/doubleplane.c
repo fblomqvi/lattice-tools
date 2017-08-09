@@ -10,12 +10,10 @@ struct s_dp_ws
     double* s;
     double* x;
     double* y;
-    double* Rs;
     double* data;
     gsl_vector_view v_s;
     gsl_vector_view v_y;
     gsl_vector_view v_x;
-    gsl_vector_view v_Rs;
     gsl_matrix_view m_R;
     gsl_matrix_view Q1;
     double dist_min;
@@ -34,18 +32,16 @@ DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
     ws->m = m;
     size_t Q_size = n * n;
     size_t R_size = n * m;
-    ws->data = malloc((Q_size + R_size + 4 * m) * sizeof(double));
+    ws->data = malloc((Q_size + R_size + 3 * m) * sizeof(double));
     llibcheck_mem(ws->data, error_a);
 
     ws->s = ws->data + Q_size + R_size;
     ws->x = ws->s + m;
     ws->y = ws->x + m;
-    ws->Rs = ws->y + m;
 
     ws->v_s = gsl_vector_view_array(ws->s, m);
     ws->v_x = gsl_vector_view_array(ws->x, m);
     ws->v_y = gsl_vector_view_array(ws->y, m);
-    ws->v_Rs = gsl_vector_view_array(ws->Rs, m);
 
     gsl_matrix_view m_Q = gsl_matrix_view_array(ws->data, n, n);
     gsl_matrix_view m_R = gsl_matrix_view_array(ws->data + Q_size, n, m);
