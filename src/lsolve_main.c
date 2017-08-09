@@ -77,10 +77,9 @@ static int print_help(FILE* file)
 "by the basis read from INPUT. Reads the points to decode from stdin in the\n"
 "binary format produced by rnd-point. Outputs to stdout if no output file is given.\n\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
-"  -a, --algorithm=ALG1         Select the decoding algorithm. Valid values are\n"
-"                                 '" ALG_NAME_BABAI "', '" ALG_NAME_DPLANE "' and '" 
-                                ALG_NAME_SPHERE "'. The default is \n"
-"                                 '" ALG_NAME_SPHERE "'.\n"
+"  -a, --algorithm=ALG1         Select the decoding algorithm. To see a list of all\n"
+"                                 available algorithms give 'list' as argument.\n"
+"                                 The default algorithm is '" ALG_NAME_SPHERE "'.\n"
 "  -c, --compare=ALG2           Compare ALG2 to ALG1.\n"
 "  -n, --num-points=NUM         The number of codewords to decode. Zero (0) makes the\n"
 "                                 solver run until it runs out of input. NOTE: this\n"
@@ -120,8 +119,14 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
         switch(ch)
         {
             case 'a':
-                opt->alg = algorithm_parse_name(optarg);
-                check(opt->alg > 0, "invalid argument to option '%c': '%s'", ch, optarg);
+                if(!strcmp(optarg, "list"))
+                    exit(algorithm_print_names(stdout));
+                else
+                {
+                    opt->alg = algorithm_parse_name(optarg);
+                    check(opt->alg > 0, "invalid argument to option '%c': '%s'",
+                            ch, optarg);
+                }
                 break;
             case 'c':
                 opt->alg_cmp = algorithm_parse_name(optarg);

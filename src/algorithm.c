@@ -95,3 +95,20 @@ void algorithm_free_ws(void* ws, Algorithm alg)
             return;
     }
 }
+
+int algorithm_print_names(FILE* file)
+{
+    libcheck(fprintf(file, "Available algorithms are:\n") > 0, "printing error");
+    libcheck(fprintf(file, "%s\n", ALG_NAME_BABAI) > 0, "printing error");
+    libcheck(fprintf(file, "%s\n", ALG_NAME_DPLANE) > 0, "printing error");
+    libcheck(fprintf(file, "%s\n", ALG_NAME_DPLANE_VANILLA) > 0, "printing error");
+    libcheck(fprintf(file, "%s\n", ALG_NAME_SPHERE_DP) > 0, "printing error");
+    libcheck(fprintf(file, "%s\n", ALG_NAME_SPHERE_SE) > 0, "printing error");
+    libcheck(fprintf(file, "%s\n", ALG_NAME_SPHERE_POHST) > 0, "printing error");
+    libcheck(fprintf(file, "%s (a synonym for %s)\n",
+                ALG_NAME_SPHERE, ALG_NAME_SPHERE_SE) > 0, "printing error");
+    return 0;
+
+error:
+    return -1;
+}

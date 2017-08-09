@@ -46,6 +46,7 @@ static int print_help(FILE* file)
 "Mandatory arguments to long options are mandatory for short options too.\n"
 "  -a, --algorithm=ALG          Select the decoding algorithm. To see a list of all\n"
 "                                 available algorithms give 'list' as argument.\n"
+"                                 The default algorithm is '" ALG_NAME_SPHERE "'.\n"
 "  -E, --min-errors=ERRORS      The minimum number of frame errors per SNR. The default\n"
 "                                 is 50.\n"
 "  -r, --rng=RNG                The random number generator to use. To see a list of all\n"
@@ -97,8 +98,13 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
         switch(ch)
         {
             case 'a':
-                opt->alg = algorithm_parse_name(optarg);
-                check(opt->alg > 0, "invalid argument to option '%c': '%s'", ch, optarg);
+                if(!strcmp(optarg, "list"))
+                    exit(algorithm_print_names(stdout));
+                else
+                {
+                    opt->alg = algorithm_parse_name(optarg);
+                    check(opt->alg > 0, "invalid argument to option '%c': '%s'", ch, optarg);
+                }
                 break;
             case 'E':
                 opt->sim.min_err = strtoul(optarg, &endptr, 10);

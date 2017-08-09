@@ -47,4 +47,6 @@ int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws,
 
 void algorithm_free_ws(void* ws, Algorithm alg);
 
+int algorithm_print_names(FILE* file);
+
 #endif /* FB_LIBLATTICE_ALGORITHM_H */
