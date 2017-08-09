@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
-#include "spheredecode.h"
+#include "sphere_pohst.h"
 #include <gsl/gsl_blas.h>
 
 struct s_sd_ws

@@ -2,7 +2,7 @@
 #include <math.h>
 #include <assert.h>
 #include <gsl/gsl_blas.h>
-#include "doubleplane.h"
+#include "dplane.h"
 
 struct s_dp_ws
 {

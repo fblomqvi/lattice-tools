@@ -18,8 +18,8 @@
 #include "dbg.h"
 #include "algorithm.h"
 #include "babai.h"
-#include "doubleplane.h"
-#include "spheredecode.h"
+#include "dplane.h"
+#include "sphere_pohst.h"
 #include "sphere_se.h"
 
 int algorithm_parse_name(const char* alg)
