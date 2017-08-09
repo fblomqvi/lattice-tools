@@ -18,7 +18,7 @@
 #ifndef FB_LIBLATTICE_SPHERE_SE_H
 #define FB_LIBLATTICE_SPHERE_SE_H
 
-#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_matrix.h>
 
 typedef struct s_sdse_ws SDSE_WS;
 
