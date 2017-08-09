@@ -27,9 +27,10 @@ int algorithm_parse_name(const char* alg)
     if(!strcmp(alg, ALG_NAME_BABAI)) return ALG_BABAI;
     if(!strcmp(alg, ALG_NAME_DPLANE)) return ALG_DPLANE;
     if(!strcmp(alg, ALG_NAME_DPLANE_VANILLA)) return ALG_DPLANE_VANILLA;
-    if(!strcmp(alg, ALG_NAME_SPHERE)) return ALG_SPHERE;
-    if(!strcmp(alg, ALG_NAME_SD_DP)) return ALG_SD_DP;
-    if(!strcmp(alg, ALG_NAME_SD_SE)) return ALG_SD_SE;
+    if(!strcmp(alg, ALG_NAME_SPHERE)) return ALG_SPHERE_SE;
+    if(!strcmp(alg, ALG_NAME_SPHERE_SE)) return ALG_SPHERE_SE;
+    if(!strcmp(alg, ALG_NAME_SPHERE_DP)) return ALG_SPHERE_DP;
+    if(!strcmp(alg, ALG_NAME_SPHERE_POHST)) return ALG_SPHERE_POHST;
     return 0;
 }
 
@@ -50,15 +51,15 @@ int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws,
             *f = dplane_vanilla_g;
             *ws = DP_WS_alloc_and_init(basis);
             break;
-        case ALG_SPHERE:
+        case ALG_SPHERE_POHST:
             *f = spheredecode_g;
             *ws = SD_WS_alloc_and_init(basis);
             break;
-        case ALG_SD_DP:
+        case ALG_SPHERE_DP:
             *f = sd_dp_g;
             *ws = SD_WS_alloc_and_init(basis);
             break;
-        case ALG_SD_SE:
+        case ALG_SPHERE_SE:
             *f = sphere_se_g;
             *ws = SDSE_WS_alloc_and_init(basis);
             break;
@@ -83,11 +84,11 @@ void algorithm_free_ws(void* ws, Algorithm alg)
         case ALG_DPLANE:
             DP_WS_free(ws);
             break;
-        case ALG_SPHERE:
-        case ALG_SD_DP:
+        case ALG_SPHERE_POHST:
+        case ALG_SPHERE_DP:
             SD_WS_free(ws);
             break;
-        case ALG_SD_SE:
+        case ALG_SPHERE_SE:
             SDSE_WS_free(ws);
             break;
         default:

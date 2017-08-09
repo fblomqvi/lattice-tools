@@ -61,7 +61,7 @@ static const OPT OPT_default = {
     .basis_file = NULL, .output = NULL, 
     .cword_num = 0, .rows_as_basis = 0,
     .no_config = 0, .binary_out = 1,
-    .alg = ALG_SPHERE, .alg_cmp = ALG_SPHERE,
+    .alg = ALG_SPHERE_SE, 
     .mode = MODE_STANDARD, .basis = NULL,
     .ws = NULL, .ws_cmp = NULL };
 

@@ -82,7 +82,7 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     };
     
     // Setting default options
-    *opt = (OPT) { .alg = ALG_SPHERE, .transpose = 0 };
+    *opt = (OPT) { .alg = ALG_SPHERE_SE, .transpose = 0 };
     opt->sim = (SIM_OPTIONS) {
         .min_err = 50, .snr_begin = 1.0,
         .snr_step = 0.2, .snr_end = 3.0, .seed = 0,

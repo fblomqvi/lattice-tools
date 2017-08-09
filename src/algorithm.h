@@ -23,18 +23,19 @@
 #define ALG_NAME_BABAI "babai"
 #define ALG_NAME_DPLANE "dplane"
 #define ALG_NAME_DPLANE_VANILLA "dplane-vanilla"
+#define ALG_NAME_SPHERE_DP "dplane-pohst"
 #define ALG_NAME_SPHERE "sphere"
-#define ALG_NAME_SD_DP "sphere-dp"
-#define ALG_NAME_SD_SE "sphere-se"
+#define ALG_NAME_SPHERE_SE "sphere-se"
+#define ALG_NAME_SPHERE_POHST "sphere-pohst"
 
 typedef enum algorithm
 {
     ALG_BABAI = 1,
     ALG_DPLANE,
     ALG_DPLANE_VANILLA,
-    ALG_SPHERE,
-    ALG_SD_DP,
-    ALG_SD_SE,
+    ALG_SPHERE_POHST,
+    ALG_SPHERE_DP,
+    ALG_SPHERE_SE,
 } Algorithm;
 
 typedef void (*SOLVE_func)(gsl_vector*, const gsl_vector*, const gsl_matrix*, void*);
