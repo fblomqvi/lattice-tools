@@ -18,9 +18,8 @@ struct s_dp_ws
     gsl_vector_view v_Rs;
     gsl_matrix_view m_R;
     gsl_matrix_view Q1;
-    int solutions;
-    double dist;
     double dist_min;
+    size_t m;
 };
 
 DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
@@ -32,6 +31,7 @@ DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
     size_t m = B->size2;
     assert(n >= m);
 
+    ws->m = m;
     size_t Q_size = n * n;
     size_t R_size = n * m;
     ws->data = malloc((Q_size + R_size + 4 * m) * sizeof(double));
@@ -110,20 +110,27 @@ static double calc_yhat(size_t k, const gsl_matrix* R,
                         const double* y, const double* s) 
 {
     size_t m = R->size2;
-    double sum = 0;
+    double sum = y[k];
     for (size_t j = k+1; j < m; j++)
-        sum += gsl_matrix_get(R, k, j) * s[j];
+        sum -= gsl_matrix_get(R, k, j) * s[j];
     
-    return y[k] - sum;
+    return sum;
 }
-void doubleplane_helper(DP_WS* ws, size_t m) 
+void doubleplane_helper(DP_WS* ws, size_t m, double dist) 
 {
     if(m == 0)
     {
-        ws->s[m] = round(calc_yhat(m, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, m, m));
-
-        if(ws->solutions)
+        double e = calc_yhat(m, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, m, m);
+        ws->s[m] = round(e);
+        double d = (e - ws->s[m]) * gsl_matrix_get(ws->R, m, m);
+        double new_dist = dist + d * d;
+        debug("new_dist: %f", new_dist);
+        if(new_dist < ws->dist_min)
         {
+            debug("new_dist < ws->dist_min, ws>-s[0]: %f", ws->s[0]);
+            memcpy(ws->x, ws->s, ws->m * sizeof(double));
+            ws->dist_min = new_dist;
+            /*
             // Caclulate ||y-Rs|| and replace ws->x with the new value if needed.
             gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_s.vector);
             gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
@@ -135,35 +142,29 @@ void doubleplane_helper(DP_WS* ws, size_t m)
                 ws->dist_min = ws->dist;
                 gsl_vector_memcpy(&ws->v_x.vector, &ws->v_s.vector);
             }
-        }
-        else
-        {
-            gsl_vector_memcpy(&ws->v_Rs.vector, &ws->v_s.vector);
-            gsl_blas_dtrmv(CblasUpper, CblasNoTrans, CblasNonUnit, 
-                            ws->R, &ws->v_Rs.vector);
-            gsl_vector_sub(&ws->v_Rs.vector, &ws->v_y.vector);
-            gsl_blas_ddot(&ws->v_Rs.vector, &ws->v_Rs.vector, &ws->dist_min);
-            gsl_vector_memcpy(&ws->v_x.vector, &ws->v_s.vector);
-            ws->solutions = 1;
+            */
         }
     }
     else
     {
         // The floor version
-        ws->s[m] = floor(calc_yhat(m, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, m, m));
-        doubleplane_helper(ws, m-1);
+        double e = calc_yhat(m, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, m, m);
+        ws->s[m] = floor(e);
+        double d = (e - ws->s[m]) * gsl_matrix_get(ws->R, m, m);
+        doubleplane_helper(ws, m-1, dist + d * d);
 
         // The ceil version
         ws->s[m] += 1.0;
-        doubleplane_helper(ws, m-1);
+        d = (e - ws->s[m]) * gsl_matrix_get(ws->R, m, m);
+        doubleplane_helper(ws, m-1, dist + d * d);
     }
 }
 
 void doubleplane(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, DP_WS *ws)
 {
     gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
-    ws->solutions = 0;
-    doubleplane_helper(ws, B->size2-1);
+    ws->dist_min = INFINITY;
+    doubleplane_helper(ws, B->size2-1, 0.0);
     gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
 }
 
