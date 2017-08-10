@@ -108,7 +108,7 @@ void AN_solve_np(long* clp, double* recv, AN_WS* ws)
     }
     else
     {
-        for(size_t i = ws->size - 1; i >= ws->size - 1 - Delta; i--)
+        for(size_t i = ws->size - 1; i > ws->size - 1 + Delta; i--)
             clp[ws->idxs[i]]++;
     }
 }
