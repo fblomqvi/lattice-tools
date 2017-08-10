@@ -280,7 +280,8 @@ static int solve(FILE* outfile, OPT* opt)
 
     if(opt->binary_out)
     {
-        while(1)
+        size_t i = 0;
+        while(!conf->num_cwords || i < conf->num_cwords)
         {
             int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
             llibcheck(rc == 0, error_c, "read_cword_binary failed");
@@ -288,11 +289,13 @@ static int solve(FILE* outfile, OPT* opt)
             opt->solve(&v_clp.vector, &v_cword.vector, opt->basis, opt->ws);
             llibcheck(fwrite(clp, sizeof(long), conf->dimension, outfile) 
                     == conf->dimension, error_c, "fwrite failed");
+            i++;
         }
     }
     else
     {
-        while(1)
+        size_t i = 0;
+        while(!conf->num_cwords || i < conf->num_cwords)
         {
             int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
             llibcheck(rc == 0, error_c, "read_cword_binary failed");
@@ -303,6 +306,7 @@ static int solve(FILE* outfile, OPT* opt)
             opt->solve(&v_clp.vector, &v_cword.vector, opt->basis, opt->ws);
             rc = print_lattice_point(outfile, clp, conf->dimension);
             llibcheck(rc == 0, error_c, "print_lattice_point failed");
+            i++;
         }
     }
 
@@ -347,7 +351,7 @@ static int compare(FILE* outfile, OPT* opt)
 
     size_t num_checked = 0;
     size_t num_different = 0;
-    while(1)
+    while(!conf->num_cwords || num_checked < conf->num_cwords)
     {
         int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
         llibcheck(rc == 0, error_c, "read_cword_binary failed");
