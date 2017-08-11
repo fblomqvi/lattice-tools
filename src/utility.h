@@ -9,6 +9,7 @@ void print_matrix(gsl_matrix *A);
 void fprintf_matrix(FILE *f, gsl_matrix *A);
 void fprintf_result(FILE *res_file, gsl_matrix *B, gsl_vector *t, gsl_vector *res);
 
+/*
 gsl_matrix *read_matrix(FILE *f, int transpose);
 gsl_vector *read_vector(FILE *f);
 
@@ -24,6 +25,7 @@ int is_singular(gsl_matrix *B);
 gsl_matrix *random_basis(int n, int m, gsl_rng *rng, int maxval);
 gsl_matrix *random_basis_s(int m, gsl_rng *rng, int maxval);
 gsl_vector *random_target(int n, gsl_rng *rng, int maxval);
+*/
 
 #endif /* UTILITY_H */
 

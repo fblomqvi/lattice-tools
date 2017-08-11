@@ -9,11 +9,13 @@
 /* Allocates memory for a new vector c, copies the contents of the argument
  * vector v into c and returns a pointer to c.
  */
+/*
 gsl_vector *clone_vector(const gsl_vector *v) {
     gsl_vector *c = gsl_vector_alloc(v->size);
     gsl_vector_memcpy(c, v);
     return c;
 }
+*/
 
 void print_matrix(gsl_matrix *A) {
     for (size_t i = 0; i < A->size1; i++) {
@@ -51,6 +53,7 @@ void fprintf_result(FILE *res_file, gsl_matrix *B, gsl_vector *t, gsl_vector *re
  * [[1 2] returns 1 2 and [[1 2]  returns 1 3
  * [3 4]]         3 4     [3 4]]T         2 4
  */
+/*
 gsl_matrix *read_matrix(FILE *f, int transpose) {
     char previous = fgetc(f);
     char current = fgetc(f);
@@ -110,10 +113,12 @@ gsl_matrix *read_matrix(FILE *f, int transpose) {
 
     return M;
 }
+*/
 
 /* Create and return a new gsl_vector from file f and return a pointer to it.
  * Reads the file until the first ]-character.
  */
+/*
 gsl_vector *read_vector(FILE *f) {
     char previous = '\0';
     char current = fgetc(f);
@@ -144,12 +149,14 @@ gsl_vector *read_vector(FILE *f) {
     }
     return v;
 }
+*/
 
 /* Generates a q-ary lattice from the parity-check matrix H. H has to be of the
  * form H = [A I] where I is the identity matrix.
  * Outputs B = [ I  0]
  *             [-A qI]
  */
+/*
 gsl_matrix *generate_basis(gsl_matrix *H, int q) {
     
     // Set the dimensions of the corresponding generator matrix G.
@@ -201,10 +208,12 @@ gsl_matrix *generate_basis(gsl_matrix *H, int q) {
     
     return B;
 }
+*/
 
 /* Calculates the value of µ = <v,u>/||u||^2 used in calculating the projection
  * of v onto u.
  */
+/*
 double calc_mu (const gsl_vector *v, const gsl_vector *u) {
     double inner_product, u_length_squared, mu;
     gsl_blas_ddot(v, u, &inner_product);    // Sets inner_product = <v,u>.
@@ -212,10 +221,12 @@ double calc_mu (const gsl_vector *v, const gsl_vector *u) {
     mu = inner_product/u_length_squared;    // Sets µ = <v,u>/||u||^2.
     return mu;
 }
+*/
 
 /* Allocates memory for and returns the vector that is the projection of v onto u: 
  * projection(gsl_vector *v, gsl_vector *u) = µ*u = <v,u>/||u||^2 * u
  */
+/*
 gsl_vector *projection(const gsl_vector *v, const gsl_vector *u) {
     assert(v->size == u->size);
     double mu = calc_mu(v, u);
@@ -223,20 +234,21 @@ gsl_vector *projection(const gsl_vector *v, const gsl_vector *u) {
     gsl_vector_scale(res, mu);
     return res;
 }
+*/
 
 /* Calculates the orthogonal non-normalized basis of the input B using the
  * modified Gram-Schmidt process. Memory is allocated for the result matrix
  * and the original input matrix is left untouched. Is used as a subroutine
  * in the Babai-algorithm.
  */
+/*
 gsl_matrix *gram_schmidt(const gsl_matrix *B) {
     // Allocate memory for the result matrix.
     gsl_matrix *res = gsl_matrix_alloc(B->size1, B->size2);
     
     for (size_t i = 0; i < B->size2; i++) {
-        /* Initialize new vector v and copy i:th column of input
-         * matrix B to vector v.
-         */
+        //Initialize new vector v and copy i:th column of input
+        // matrix B to vector v.
         gsl_vector_const_view b = gsl_matrix_const_column(B, i);
         gsl_vector *v = clone_vector(&b.vector);
         
@@ -260,7 +272,9 @@ gsl_matrix *gram_schmidt(const gsl_matrix *B) {
     
     return res;
 }
+*/
 
+/*
 int is_singular(gsl_matrix *B) {
     int n = B->size1;
     int m = B->size2;
@@ -322,3 +336,4 @@ gsl_vector *random_target(int n, gsl_rng *rng, int maxval) {
     }
     return t;
 }
+*/
