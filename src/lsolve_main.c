@@ -240,7 +240,7 @@ static int parse_basis_init_ws(OPT* opt)
 
     opt->basis = parse_fpLLL_matrix(infile, opt->rows_as_basis);
     fclose(infile);
-    check(opt->basis, "error when processing input file '%s'", opt->sim.infile);
+    check(opt->basis, "error when processing input file '%s'", opt->basis_file);
 
     algorithm_get_fp_init_ws(&opt->solve, &opt->ws, opt->alg, opt->basis);
     if(opt->mode == MODE_COMPARE)
