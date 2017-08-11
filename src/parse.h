@@ -20,7 +20,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <gsl/gsl_matrix.h>
 
 int parse_hyperplane_coeffs(FILE* file, long* coeffs, size_t num_coeffs);
+
+gsl_matrix* parse_fpLLL_matrix(FILE* file, int transpose);
 
 #endif /* FB_LIBLATTICE_PARSE_H */

@@ -238,9 +238,9 @@ static int parse_basis_init_ws(OPT* opt)
     FILE* infile = fopen(opt->basis_file, "r");
     check(infile, "Could not open '%s' for reading", opt->basis_file);
 
-    // TODO: Add checks
-    opt->basis = read_matrix(infile, opt->rows_as_basis);
+    opt->basis = parse_fpLLL_matrix(infile, opt->rows_as_basis);
     fclose(infile);
+    check(opt->basis, "error when processing input file '%s'", opt->sim.infile);
 
     algorithm_get_fp_init_ws(&opt->solve, &opt->ws, opt->alg, opt->basis);
     if(opt->mode == MODE_COMPARE)

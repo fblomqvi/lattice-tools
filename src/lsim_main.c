@@ -177,7 +177,7 @@ error:
 
 static int parse_and_simulate(FILE* file, OPT* opt)
 {
-    gsl_matrix* basis = read_matrix(file, opt->transpose);
+    gsl_matrix* basis = parse_fpLLL_matrix(file, opt->transpose);
     check(basis, "error when processing input file '%s'", opt->sim.infile);
 
     SIMULATOR* sim = SIMULATOR_from_basis(basis, opt->alg);

@@ -17,11 +17,12 @@
 
 #include "dbg.h"
 #include "parse.h"
+#include "slist_double.h"
 #include <limits.h>
 #include <ctype.h>
 //#include <sys/stat.h>
 #include <assert.h>
-//#include <math.h>
+#include <math.h>
 
 #define printable_input(str) (is_printable(str) ? str : "<non-printable input>")
 
@@ -158,7 +159,6 @@ error:
 
 /* Reads at most buf_len - 1 non-whitespace characters from the stream pointed
  * to by file. Note that buf_len must be non-zero */
-/*
 static int read_until_newline(FILE* file, char* buffer, size_t buf_len)
 {
     assert(buf_len > 0);
@@ -193,7 +193,6 @@ static int read_until_newline(FILE* file, char* buffer, size_t buf_len)
 error:
     return EOF;
 }
-*/
 
 static int read_degree(FILE* file, long* degree)
 {
@@ -254,4 +253,116 @@ int parse_hyperplane_coeffs(FILE* file, long* coeffs, size_t num_coeffs)
 
 error:
     return -1;
+}
+
+gsl_matrix* parse_fpLLL_matrix(FILE* file, int transpose)
+{
+    gsl_matrix* basis = NULL;
+    SLIST_DOUBLE* coef_list = SLIST_DOUBLE_alloc();
+    check_mem(coef_list);
+
+    int rc = skip_comment_lines(file, '#');
+    llibcheck(rc == 0, error_a, "skip_comment_lines failed");
+
+    char buffer[1024];
+    char* ptr;
+    size_t cols_target;
+    size_t rows = 0;
+
+    while(1)
+    {
+        int rc = read_until_newline(file, buffer, sizeof(buffer));
+        llibcheck(rc != EOF, error_a, "read_until_newline failed");
+        if(rc == 1)
+            break;
+
+        ptr = buffer;
+        if(!rows)
+        {
+            lcheck(buffer[0] == '[' && buffer[1] == '[', error_a,
+                    "Error parsing '%s'; expected '[[' at the start of the matrix",
+                    printable_input(buffer));
+            ptr += 2;
+        }
+        else
+        {
+            if(buffer[0] == ']')    // End of matrix reached
+                break;
+            else
+            {
+                lcheck(buffer[0] == '[',  error_a,
+                        "Error parsing '%s'; expected '[' at the start of the row",
+                        printable_input(buffer));
+                ptr++;
+            }
+        }
+
+        rows++;
+
+        size_t cols = 0;
+        int row_ended;
+        while(*ptr)
+        {
+            char* endptr;
+            double temp = strtod(ptr, &endptr);
+            lcheck(endptr != ptr && !(errno == ERANGE && temp == HUGE_VAL),
+                    error_a, "Error parsing '%s'; expected '%%f'", printable_input(buffer));
+            ptr = endptr;
+
+            lcheck_mem(SLIST_DOUBLE_push_back(coef_list, temp), error_a);
+            cols++;
+
+            // Skip whitespace
+            while(isspace(*ptr))
+                ptr++;
+
+            if(*ptr == ']')
+            {
+                row_ended = 1;
+                break;
+            }
+        }
+
+        lcheck(row_ended,  error_a,
+                "Error parsing '%s'; expected ']' at the end of the row",
+                printable_input(buffer));
+
+        if(rows == 1)
+            cols_target = cols;
+        else
+        {
+            lcheck(cols == cols_target,  error_a,
+                    "Error parsing matrix; all columns don't have the same "
+                    "number of elements", printable_input(buffer));
+        }
+
+        if(*(++ptr) == ']')     // End of matrix reached
+            break;
+    }
+
+    if(ptr[1] == 'T')
+        transpose = !transpose;
+
+    size_t m_rows = transpose ? cols_target : rows;
+    size_t m_cols = transpose ? rows : cols_target;
+    basis = gsl_matrix_alloc(m_rows, m_cols);
+    lcheck_mem(basis, error_a);
+
+    if(transpose)
+    {
+        for(size_t i = 0; i < m_cols; i++)
+            for(size_t j = 0; j < m_rows; j++)
+                gsl_matrix_set(basis, j, i, SLIST_DOUBLE_pop_front(coef_list));
+    }
+    else
+    {
+        for(size_t i = 0; i < m_rows; i++)
+            for(size_t j = 0; j < m_cols; j++)
+                gsl_matrix_set(basis, i, j, SLIST_DOUBLE_pop_front(coef_list));
+    }
+
+error_a:
+    SLIST_DOUBLE_free(coef_list);
+error:
+    return basis;
 }
