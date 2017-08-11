@@ -51,8 +51,6 @@ static void set_bounds_sd(SD_WS* ws, size_t k);
 static void step_5a(SD_WS* ws, double* d_sqr, size_t m);
 static void step_5b(SD_WS* ws, size_t* k);
 
-static void darray_sub(double* a, double* b, size_t m);
-
 /*NOTE: n is used to denote the amount of rows of the basis matrix B and m for
  *      columns. This notation was chosen in order to be consistent with
  *      the documentation and it is the OPPOSITE of how gsl uses them
@@ -355,10 +353,4 @@ static inline void step_5b(SD_WS* ws, size_t* k)
     (*k)--;
     ws->yhat[*k] = calc_yhat(*k, ws->R, ws->y, ws->s);
     ws->d2[*k] = calc_d2(*k, ws);
-}
-
-static void darray_sub(double* a, double* b, size_t m)
-{ 
-    for(size_t i = 0; i < m; i++)
-        a[i] -= b[i];
 }

@@ -18,6 +18,8 @@
 #include "dbg.h"
 #include "version.h"
 #include "rng.h"
+#include "parse.h"
+#include "simulator.h"
 #include <getopt.h>
 #include <errno.h>
 #include <string.h>
@@ -25,8 +27,6 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <math.h>
-#include "utility.h"
-#include "simulator.h"
 
 typedef struct s_opt
 {

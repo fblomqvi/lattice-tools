@@ -20,7 +20,7 @@
 #include "rng.h"
 #include "rnd_point.h"
 #include "algorithm.h"
-#include "utility.h"
+#include "parse.h"
 #include <getopt.h>
 #include <errno.h>
 #include <string.h>
@@ -245,8 +245,6 @@ static int parse_basis_init_ws(OPT* opt)
     algorithm_get_fp_init_ws(&opt->solve, &opt->ws, opt->alg, opt->basis);
     if(opt->mode == MODE_COMPARE)
         algorithm_get_fp_init_ws(&opt->solve_cmp, &opt->ws_cmp, opt->alg_cmp, opt->basis);
-
-    //print_matrix(opt->basis);
 
     return 0;
 
