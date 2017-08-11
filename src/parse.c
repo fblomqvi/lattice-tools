@@ -159,12 +159,13 @@ error:
 
 /* Reads at most buf_len - 1 non-whitespace characters from the stream pointed
  * to by file. Note that buf_len must be non-zero */
-static int read_until_newline(FILE* file, char* buffer, size_t buf_len)
+static int read_until_newline(FILE* file, char** buffer_ptr, size_t* buf_len)
 {
-    assert(buf_len > 0);
+    assert(*buf_len > 0);
 
     int ch;
     size_t read_len = 0;
+    char* buffer = *buffer_ptr;
     
     // We skip initial whitespace.
     do {
@@ -175,8 +176,15 @@ static int read_until_newline(FILE* file, char* buffer, size_t buf_len)
 
     int eof = 0;
     do {
-        check(read_len < buf_len - 1, "Error parsing: "
-                "syntax error, input to long for buffer");
+        if(!(read_len < *buf_len - 1))
+        {
+            // Make buffer larger
+            char* temp = realloc(buffer, 2 * (*buf_len) * sizeof(char));
+            check_mem(temp);
+
+            *buffer_ptr = buffer = temp;
+            *buf_len *= 2;
+        }
 
         buffer[read_len++] = ch;
         ch = fgetc(file);
@@ -258,28 +266,32 @@ error:
 gsl_matrix* parse_fpLLL_matrix(FILE* file, int transpose)
 {
     gsl_matrix* basis = NULL;
+
+    size_t buf_size = 1024;
+    char* buffer = malloc(buf_size * sizeof(char));
+    check_mem(buffer);
+
     SLIST_DOUBLE* coef_list = SLIST_DOUBLE_alloc();
-    check_mem(coef_list);
+    lcheck_mem(coef_list, error_a);
 
     int rc = skip_comment_lines(file, '#');
-    llibcheck(rc == 0, error_a, "skip_comment_lines failed");
+    llibcheck(rc == 0, error_b, "skip_comment_lines failed");
 
-    char buffer[1024];
     char* ptr;
     size_t cols_target;
     size_t rows = 0;
 
     while(1)
     {
-        int rc = read_until_newline(file, buffer, sizeof(buffer));
-        llibcheck(rc != EOF, error_a, "read_until_newline failed");
-        if(rc == 1)
-            break;
+        int rc = read_until_newline(file, &buffer, &buf_size);
+        llibcheck(rc != EOF, error_b, "read_until_newline failed");
+        lcheck(rc != 1, error_b, "Error parsing matrix; end of "
+                    "file reached before closing bracket was found");
 
         ptr = buffer;
         if(!rows)
         {
-            lcheck(buffer[0] == '[' && buffer[1] == '[', error_a,
+            lcheck(buffer[0] == '[' && buffer[1] == '[', error_b,
                     "Error parsing '%s'; expected '[[' at the start of the matrix",
                     printable_input(buffer));
             ptr += 2;
@@ -290,7 +302,7 @@ gsl_matrix* parse_fpLLL_matrix(FILE* file, int transpose)
                 break;
             else
             {
-                lcheck(buffer[0] == '[',  error_a,
+                lcheck(buffer[0] == '[',  error_b,
                         "Error parsing '%s'; expected '[' at the start of the row",
                         printable_input(buffer));
                 ptr++;
@@ -306,10 +318,10 @@ gsl_matrix* parse_fpLLL_matrix(FILE* file, int transpose)
             char* endptr;
             double temp = strtod(ptr, &endptr);
             lcheck(endptr != ptr && !(errno == ERANGE && temp == HUGE_VAL),
-                    error_a, "Error parsing '%s'; expected '%%f'", printable_input(buffer));
+                    error_b, "Error parsing '%s'; expected '%%f'", printable_input(buffer));
             ptr = endptr;
 
-            lcheck_mem(SLIST_DOUBLE_push_back(coef_list, temp), error_a);
+            lcheck_mem(SLIST_DOUBLE_push_back(coef_list, temp), error_b);
             cols++;
 
             // Skip whitespace
@@ -323,7 +335,7 @@ gsl_matrix* parse_fpLLL_matrix(FILE* file, int transpose)
             }
         }
 
-        lcheck(row_ended,  error_a,
+        lcheck(row_ended,  error_b,
                 "Error parsing '%s'; expected ']' at the end of the row",
                 printable_input(buffer));
 
@@ -331,7 +343,7 @@ gsl_matrix* parse_fpLLL_matrix(FILE* file, int transpose)
             cols_target = cols;
         else
         {
-            lcheck(cols == cols_target,  error_a,
+            lcheck(cols == cols_target,  error_b,
                     "Error parsing matrix; all columns don't have the same "
                     "number of elements", printable_input(buffer));
         }
@@ -346,7 +358,7 @@ gsl_matrix* parse_fpLLL_matrix(FILE* file, int transpose)
     size_t m_rows = transpose ? cols_target : rows;
     size_t m_cols = transpose ? rows : cols_target;
     basis = gsl_matrix_alloc(m_rows, m_cols);
-    lcheck_mem(basis, error_a);
+    lcheck_mem(basis, error_b);
 
     if(transpose)
     {
@@ -361,8 +373,10 @@ gsl_matrix* parse_fpLLL_matrix(FILE* file, int transpose)
                 gsl_matrix_set(basis, i, j, SLIST_DOUBLE_pop_front(coef_list));
     }
 
-error_a:
+error_b:
     SLIST_DOUBLE_free(coef_list);
+error_a:
+    free(buffer);
 error:
     return basis;
 }
