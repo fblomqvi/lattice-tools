@@ -335,6 +335,35 @@ static void get_point(double* p, gsl_rng* rng, RP_OPT* opt)
     }
 }
 
+static int set_range(int custom_range, gsl_rng* rng, RP_OPT* opt)
+{
+    if(custom_range)
+    {
+        debug("Custom range!");
+        if(!opt->min_set)
+            opt->min = gsl_rng_min(rng);
+        if(!opt->max_set)
+            opt->max = gsl_rng_max(rng);
+
+        check(opt->min < opt->max, "min (%ld) must be smaller than max (%ld)",
+                opt->min, opt->max);
+        long max_range = gsl_rng_max(rng) - gsl_rng_min(rng);
+        check(opt->max - opt->min <= max_range,
+                "Selected range too large for the selected rng;");
+    }
+    else if(opt->sloppy)
+    {
+        debug("Sloppy!");
+        opt->min = gsl_rng_min(rng);
+        opt->max = gsl_rng_max(rng);
+    }
+
+    return 0;
+
+error:
+    return -1;
+}
+
 static int generate_standard(FILE* outfile, RP_OPT* opt)
 {
     int ret = -1;
@@ -347,27 +376,8 @@ static int generate_standard(FILE* outfile, RP_OPT* opt)
 
     int custom_range = (opt->min_set || opt->max_set);
     opt->get_point_switch = custom_range + 2 * opt->hyp_mode + 8 * opt->sloppy;
-    if(custom_range)
-    {
-        debug("Custom range!");
-        if(!opt->min_set)
-            opt->min = gsl_rng_min(rng);
-        if(!opt->max_set)
-            opt->max = gsl_rng_max(rng);
+    llibcheck(set_range(custom_range, rng, opt) == 0, error_b, "set_range failed");
 
-        lcheck(opt->min < opt->max, error_b, "min (%ld) must be smaller than max (%ld)",
-                opt->min, opt->max);
-        long max_range = gsl_rng_max(rng) - gsl_rng_min(rng);
-        lcheck(opt->max - opt->min <= max_range, error_b,
-                "Selected range too large for the selected rng;");
-    }
-    else if(opt->sloppy)
-    {
-        debug("Sloppy!");
-        opt->min = gsl_rng_min(rng);
-        opt->max = gsl_rng_max(rng);
-    }
-                
     size_t i = 0;
     do {
         get_point(cword, rng, opt);
@@ -391,8 +401,6 @@ static int generate_with_basis(FILE* outfile, RP_OPT* opt)
     size_t m = opt->basis->size2;
     assert(n >= m);
 
-    debug("n: %zu", n);
-    debug("m: %zu", m);
     size_t tausize = (n < m) ? n : m;
     size_t Q_size = n * n;
     size_t R_size = n * m;
@@ -410,13 +418,8 @@ static int generate_with_basis(FILE* outfile, RP_OPT* opt)
     gsl_matrix_view m_Q = gsl_matrix_view_array(data, n, n);
     gsl_matrix_view m_R = gsl_matrix_view_array(data + Q_size, n, m);
 
-    gsl_matrix* B_copy = gsl_matrix_alloc(n, m);
-    llibcheck_mem(B_copy, error_a);
-
-    gsl_matrix_memcpy(B_copy, opt->basis);
-    gsl_linalg_QR_decomp(B_copy, &v_tau.vector);
-    gsl_linalg_QR_unpack(B_copy, &v_tau.vector, &m_Q.matrix, &m_R.matrix);
-    gsl_matrix_free(B_copy);
+    gsl_linalg_QR_decomp(opt->basis, &v_tau.vector);
+    gsl_linalg_QR_unpack(opt->basis, &v_tau.vector, &m_Q.matrix, &m_R.matrix);
 
     gsl_matrix_view m_Q1 = gsl_matrix_submatrix(&m_Q.matrix, 0, 0, n, m);
 
@@ -426,26 +429,7 @@ static int generate_with_basis(FILE* outfile, RP_OPT* opt)
 
     int custom_range = (opt->min_set || opt->max_set);
     opt->get_point_switch = custom_range + 8 * opt->sloppy;
-    if(custom_range)
-    {
-        debug("Custom range!");
-        if(!opt->min_set)
-            opt->min = gsl_rng_min(rng);
-        if(!opt->max_set)
-            opt->max = gsl_rng_max(rng);
-
-        lcheck(opt->min < opt->max, error_b, "min (%ld) must be smaller than max (%ld)",
-                opt->min, opt->max);
-        long max_range = gsl_rng_max(rng) - gsl_rng_min(rng);
-        lcheck(opt->max - opt->min <= max_range, error_b,
-                "Selected range too large for the selected rng;");
-    }
-    else if(opt->sloppy)
-    {
-        debug("Sloppy!");
-        opt->min = gsl_rng_min(rng);
-        opt->max = gsl_rng_max(rng);
-    }
+    llibcheck(set_range(custom_range, rng, opt) == 0, error_b, "set_range failed");
 
     opt->cword_len = m;
     size_t i = 0;
@@ -524,6 +508,7 @@ error_a:
 error:
     return ret;
 }
+
 int main(int argc, char* argv[])
 {
     RP_OPT opt;
