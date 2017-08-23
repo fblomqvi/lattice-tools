@@ -50,6 +50,7 @@ typedef struct s_options
     int no_config;
     int binary_out;
     int rows_as_basis;
+    int verbose;
     gsl_matrix* basis;
     SOLVE_func solve;
     SOLVE_func solve_cmp;
@@ -61,7 +62,7 @@ static const OPT OPT_default = {
     .basis_file = NULL, .output = NULL, 
     .cword_num = 0, .rows_as_basis = 0,
     .no_config = 0, .binary_out = 1,
-    .alg = ALG_SPHERE_SE, 
+    .verbose = 0, .alg = ALG_SPHERE_SE,
     .mode = MODE_STANDARD, .basis = NULL,
     .ws = NULL, .ws_cmp = NULL };
 
@@ -88,6 +89,7 @@ static int print_help(FILE* file)
 "  -C, --no-config              Do not try to read the configuration from stdin.\n"
 "  -R, --readable-output        Produce readable output instead of binary output.\n"
 "  -t, --transpose              Transpose the basis read from INPUT.\n"
+"  -v, --verbose                Verbose output. Only affects 'compare mode'.\n"
 "      --help                   Display this help and exit.\n"
 "      --version                Output version information and exit.";
     
@@ -97,13 +99,14 @@ static int print_help(FILE* file)
 
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 {
-    static const char* optstring = "a:c:n:tRC";
+    static const char* optstring = "a:c:n:tvRC";
     static struct option longopt[] = {
         {"algorithm", required_argument, NULL, 'a'},
         {"compare", required_argument, NULL, 'c'},
         {"num-points", required_argument, NULL, 'n'},
         {"readable-output", no_argument, NULL, 'R'},
         {"transpose", no_argument, NULL, 't'},
+        {"verbose", no_argument, NULL, 'v'},
         {"no-config", no_argument, NULL, 'C'},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'V'},
@@ -146,6 +149,9 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 break;
             case 't':
                 opt->rows_as_basis = 1;
+                break;
+            case 'v':
+                opt->verbose = 1;
                 break;
             case 'h':
                 exit(print_help(stdout));
@@ -329,6 +335,21 @@ static int solutions_not_equal(double* a, double* b, size_t len)
     return 0;
 }
 
+static int print_details(FILE* file, const double* cword, const double* clp1,
+                        const double* clp2, size_t len)
+{
+    libcheck(fprintf(file, "cword: ") > 0, "printing error");
+    libcheck(print_lattice_point(file, cword, len) == 0, "print_lattice_point failed");
+    libcheck(fprintf(file, "clp1: ") > 0, "printing error");
+    libcheck(print_lattice_point(file, clp1, len) == 0, "print_lattice_point failed");
+    libcheck(fprintf(file, "clp2: ") > 0, "printing error");
+    libcheck(print_lattice_point(file, clp2, len) == 0, "print_lattice_point failed");
+    return 0;
+
+error:
+    return -1;
+}
+
 static int compare(FILE* outfile, OPT* opt)
 {
     int ret = EXIT_FAILURE;
@@ -357,15 +378,23 @@ static int compare(FILE* outfile, OPT* opt)
         opt->solve(&v_clp1.vector, &v_cword.vector, opt->basis, opt->ws);
         opt->solve_cmp(&v_clp2.vector, &v_cword.vector, opt->basis, opt->ws_cmp);
         if(solutions_not_equal(clp1, clp2, conf->dimension))
+        {
             num_different++;
+            if(opt->verbose)
+            {
+                rc = print_details(outfile, cword, clp1, clp2, conf->dimension);
+                llibcheck(rc == 0, error_c, "print_details failed");
+            }
+        }
         num_checked++;
     }
 
     ret = EXIT_SUCCESS;
 
 error_c:
-    fprintf(outfile, "Compared %zu solutions and found %zu differences\n",
-            num_checked, num_different);
+    fprintf(outfile, "Compared %zu solutions and found %zu differences.\n"
+           "Error rate: %13.8e\n",
+            num_checked, num_different, (double) num_different / num_checked);
     free_basis_and_ws(opt);
 error_b:
     free(cword);
