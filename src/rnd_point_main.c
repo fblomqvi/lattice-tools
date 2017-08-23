@@ -28,6 +28,14 @@
 #include <stdarg.h>
 #include <time.h>
 #include <stdlib.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_linalg.h>
+#include <assert.h>
+
+#define HYP_MODE_NO 0
+#define HYP_MODE_A 1
+#define HYP_MODE_H 2
+#define HYP_MODE_B 3
 
 typedef enum enum_mode
 {
@@ -40,6 +48,7 @@ typedef struct s_options
     char* input;
     char* output;
     long* hyperplane;
+    gsl_matrix* basis;
     const gsl_rng_type* rng_type;
     int (*print_point)(FILE*, const double*, size_t);
     size_t cword_len;
@@ -54,6 +63,7 @@ typedef struct s_options
     int sloppy;
     int min_set;
     int max_set;
+    int rows_as_basis;
 } RP_OPT;
 
 static int print_cword_binary(FILE* file, const double* cword, size_t cword_len)
@@ -88,6 +98,8 @@ static int print_help(FILE* file)
 "  -H, --hyperplane=FILE        Generates points on the hyperplane defined by the\n"
 "                                 coefficients read from FILE. Give '-' as argument \n"
 "                                 to read from stdin.\n"
+"  -B, --basis=FILE             Generates points in the space spanned by the given basis.\n"
+"                                 Give '-' as argument to read from stdin.\n"
 "  -n, --num-points=NUM         The number of codewords to generate. Zero (0) makes the\n"
 "                                 encoder run until it is killed.\n"
 "  -m, --min=NUM                The smallest possible value for a coordinate (inclusive).\n"
@@ -101,12 +113,13 @@ static int print_help(FILE* file)
 "                                 by -m and -M is large). However, this option speeds up\n"
 "                                 the generator considerably.\n"
 "  -S, --seed=SEED              The seed for the random number generator.\n"
+"  -t, --transpose              Transpose the basis read from FILE.\n"
 "  -Z, --force-zero-binary      Makes the encoder output all zero codewords in binary\n"
 "                                 format. Note that this is a developer option meant\n"
 "                                 for testing.\n"
 "      --help                   Display this help and exit.\n"
 "      --version                Output version information and exit.\n\n"
-"If more that one of 'A', and 'H' are given, then the one specified last\n"
+"If more that one of 'A', 'B', and 'H' are given, then the one specified last\n"
 "takes precedence.\n";
     
     return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0) 
@@ -115,11 +128,12 @@ static int print_help(FILE* file)
 
 static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
 {
-    static const char* optstring = "ACd:H:n:m:M:r:RsS:Z";
+    static const char* optstring = "AB:Cd:H:n:m:M:r:RsS:tZ";
     static struct option longopt[] = {
         {"A-n", no_argument, NULL, 'A'},
         {"no-config", no_argument, NULL, 'C'},
         {"dimension", required_argument, NULL, 'd'},
+        {"basis", required_argument, NULL, 'B'},
         {"hyperplane", required_argument, NULL, 'H'},
         {"num-points", required_argument, NULL, 'n'},
         {"min", required_argument, NULL, 'm'},
@@ -128,6 +142,7 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
         {"readable-output", no_argument, NULL, 'R'},
         {"sloppy", no_argument, NULL, 's'},
         {"seed", required_argument, NULL, 'S'},
+        {"transpose", no_argument, NULL, 't'},
         {"force-zero-binary", no_argument, NULL, 'Z'},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'V'},
@@ -139,9 +154,10 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
         .input = NULL, .output = NULL, .cword_len = 0,
         .cword_num = 0, .seed = 0, 
         .min = 0, .max = 0, .sloppy = 0,
-        .output_conf = 1, .hyp_mode = 0,
+        .output_conf = 1, .hyp_mode = HYP_MODE_NO,
         .min_set = 0, .max_set = 0,
         .print_point = print_cword_binary, .hyperplane = NULL,
+        .basis = NULL,
         .mode = MODE_STANDARD, .rng_type = gsl_rng_default };
 
     // Parsing the command line
@@ -152,7 +168,7 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
         switch(ch)
         {
             case 'A':
-                opt->hyp_mode = 1;
+                opt->hyp_mode = HYP_MODE_A;
                 break;
             case 'C':
                 opt->output_conf = 0;
@@ -162,8 +178,12 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
                 check(*endptr == '\0' && !(errno == ERANGE && opt->cword_len == ULONG_MAX),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
+            case 'B':
+                opt->hyp_mode = HYP_MODE_B;
+                opt->input = !strcmp(optarg, "-") ? NULL : optarg;
+                break;
             case 'H':
-                opt->hyp_mode = 2;
+                opt->hyp_mode = HYP_MODE_H;
                 opt->input = !strcmp(optarg, "-") ? NULL : optarg;
                 break;
             case 'n':
@@ -210,6 +230,9 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             }
+            case 't':
+                opt->rows_as_basis = 1;
+                break;
             case 'Z':
                 opt->mode = MODE_ZERO;
                 break;
@@ -226,7 +249,8 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
         opt->output = argv[optind];
 
     // Check for mandatory arguments.
-    check(opt->cword_len > 0, "missing mandatory option -- '%c'", 'd');
+    if(opt->hyp_mode != HYP_MODE_B)
+        check(opt->cword_len > 0, "missing mandatory option -- '%c'", 'd');
 
     return;
 
@@ -334,7 +358,7 @@ static int generate_standard(FILE* outfile, RP_OPT* opt)
         lcheck(opt->min < opt->max, error_b, "min (%ld) must be smaller than max (%ld)",
                 opt->min, opt->max);
         long max_range = gsl_rng_max(rng) - gsl_rng_min(rng);
-        lcheck(opt->max - opt->min <= max_range, error_b, 
+        lcheck(opt->max - opt->min <= max_range, error_b,
                 "Selected range too large for the selected rng;");
     }
     else if(opt->sloppy)
@@ -344,30 +368,98 @@ static int generate_standard(FILE* outfile, RP_OPT* opt)
         opt->max = gsl_rng_max(rng);
     }
                 
-    if(opt->cword_num)
-    {
-        size_t i = 0;
-        do {
-            get_point(cword, rng, opt);
-            lcheck(opt->print_point(outfile, cword, opt->cword_len) == 0, 
-                    error_b, "print_point failed");
-        } while(++i < opt->cword_num);
-    }
-    else
-    {
-        while(1)
-        {
-            get_point(cword, rng, opt);
-            lcheck(opt->print_point(outfile, cword, opt->cword_len) == 0, 
-                    error_b, "print_point failed");
-        }
-    }
+    size_t i = 0;
+    do {
+        get_point(cword, rng, opt);
+        lcheck(opt->print_point(outfile, cword, opt->cword_len) == 0,
+                error_b, "print_point failed");
+    } while(!opt->cword_num || ++i < opt->cword_num);
     ret = 0;
 
 error_b:
     gsl_rng_free(rng);
 error_a:
     free(cword);
+error:
+    return ret;
+}
+
+static int generate_with_basis(FILE* outfile, RP_OPT* opt)
+{
+    int ret = -1;
+    size_t n = opt->basis->size1;
+    size_t m = opt->basis->size2;
+    assert(n >= m);
+
+    debug("n: %zu", n);
+    debug("m: %zu", m);
+    size_t tausize = (n < m) ? n : m;
+    size_t Q_size = n * n;
+    size_t R_size = n * m;
+    double* data = malloc((Q_size + R_size + tausize + n + m) * sizeof(double));
+    check_mem(data);
+
+    double* tau = data + Q_size + R_size;
+    double* r = tau + tausize;
+    double* x = r + n;
+
+    gsl_vector_view v_r = gsl_vector_view_array(r, n);
+    gsl_vector_view v_x = gsl_vector_view_array(x, m);
+    gsl_vector_view v_tau = gsl_vector_view_array(tau, tausize);
+
+    gsl_matrix_view m_Q = gsl_matrix_view_array(data, n, n);
+    gsl_matrix_view m_R = gsl_matrix_view_array(data + Q_size, n, m);
+
+    gsl_matrix* B_copy = gsl_matrix_alloc(n, m);
+    llibcheck_mem(B_copy, error_a);
+
+    gsl_matrix_memcpy(B_copy, opt->basis);
+    gsl_linalg_QR_decomp(B_copy, &v_tau.vector);
+    gsl_linalg_QR_unpack(B_copy, &v_tau.vector, &m_Q.matrix, &m_R.matrix);
+    gsl_matrix_free(B_copy);
+
+    gsl_matrix_view m_Q1 = gsl_matrix_submatrix(&m_Q.matrix, 0, 0, n, m);
+
+    opt->seed = opt->seed ? opt->seed : (unsigned long) time(NULL) + clock();
+    gsl_rng* rng = rng_alloc_and_seed(opt->rng_type, opt->seed);
+    lcheck_mem(rng, error_a);
+
+    int custom_range = (opt->min_set || opt->max_set);
+    opt->get_point_switch = custom_range + 8 * opt->sloppy;
+    if(custom_range)
+    {
+        debug("Custom range!");
+        if(!opt->min_set)
+            opt->min = gsl_rng_min(rng);
+        if(!opt->max_set)
+            opt->max = gsl_rng_max(rng);
+
+        lcheck(opt->min < opt->max, error_b, "min (%ld) must be smaller than max (%ld)",
+                opt->min, opt->max);
+        long max_range = gsl_rng_max(rng) - gsl_rng_min(rng);
+        lcheck(opt->max - opt->min <= max_range, error_b,
+                "Selected range too large for the selected rng;");
+    }
+    else if(opt->sloppy)
+    {
+        debug("Sloppy!");
+        opt->min = gsl_rng_min(rng);
+        opt->max = gsl_rng_max(rng);
+    }
+
+    opt->cword_len = m;
+    size_t i = 0;
+    do {
+        get_point(x, rng, opt);
+        gsl_blas_dgemv(CblasNoTrans, 1, &m_Q1.matrix, &v_x.vector, 0, &v_r.vector);
+        lcheck(opt->print_point(outfile, r, n) == 0, error_b, "print_point failed");
+    } while(!opt->cword_num || ++i < opt->cword_num);
+    ret = 0;
+
+error_b:
+    gsl_rng_free(rng);
+error_a:
+    free(data);
 error:
     return ret;
 }
@@ -411,6 +503,27 @@ error:
     return ret;
 }
 
+static int read_basis(RP_OPT* opt)
+{
+    int ret = -1;
+    FILE* infile = stdin;
+    if(opt->input)
+    {
+        infile = fopen(opt->input, "r");
+        check(infile, "Could not open '%s' for reading", opt->input);
+    }
+
+    opt->basis = parse_fpLLL_matrix(infile, opt->rows_as_basis);
+    llibcheck(opt->basis, error_a, "parse_fpLLL_matrix failed");
+    opt->cword_len = opt->basis->size1;
+    ret = 0;
+
+error_a:
+    if(opt->input)
+        fclose(infile);
+error:
+    return ret;
+}
 int main(int argc, char* argv[])
 {
     RP_OPT opt;
@@ -426,10 +539,15 @@ int main(int argc, char* argv[])
     }
 
     int rc;
-    if(opt.hyp_mode == 2)
+    if(opt.hyp_mode == HYP_MODE_H)
     {
         rc = read_hyperplane_coeffs(&opt);
         llibcheck(rc == 0, error_a, "read_hyperplane_coeffs failed");
+    }
+    else if(opt.hyp_mode == HYP_MODE_B)
+    {
+        rc = read_basis(&opt);
+        llibcheck(rc == 0, error_a, "read_basis failed");
     }
 
     if(opt.output_conf)
@@ -443,7 +561,10 @@ int main(int argc, char* argv[])
     {
         default:
         case MODE_STANDARD:
-            rc = generate_standard(outfile, &opt);
+            if(opt.hyp_mode == HYP_MODE_B)
+                rc = generate_with_basis(outfile, &opt);
+            else
+                rc = generate_standard(outfile, &opt);
             break;
         case MODE_ZERO:
             rc = generate_zero_pnt(outfile, sizeof(double), opt.cword_len, opt.cword_num);
@@ -453,6 +574,7 @@ int main(int argc, char* argv[])
     ret = EXIT_SUCCESS;
 
 error_a:
+    gsl_matrix_free(opt.basis);
     free(opt.hyperplane);
     if(opt.output)
         fclose(outfile);
