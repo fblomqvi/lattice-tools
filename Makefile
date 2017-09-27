@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-std=gnu11 -Wall -Wextra -g -O3 -Isrc -DNDEBUG -DGSL_RANGE_CHECK_OFF -DHAVE_INLINE $(OPTFLAGS)
 #CFLAGS=-std=gnu11 -Wall -Wextra -g -O3 -ffast-math -mtune=native -Isrc -DNDEBUG $(OPTFLAGS)
 #CFLAGS= -std=gnu99 -Wall -Wextra -pedantic -g -O2 -Isrc -DNDEBUG -fomit-frame-pointer -mtune=native
-LIBS= -lm -lgsl -lgslcblas $(OPTLIBS)
+LIBS= -lm -lgsl -lgslcblas -lgmp $(OPTLIBS)
 PREFIX?=/usr/local
 SRCDIR=src
 OBJDIR=obj
@@ -37,6 +37,9 @@ $(TARGET): build $(OBJECTS)
 an-solve: $(SRCDIR)/an_solve_main.c $(TARGET)
 	$(CC) $(CFLAGS) $^ -o an-solve $(LIBS)
 	
+lgen: $(SRCDIR)/lgen_main.c $(TARGET)
+	$(CC) $(CFLAGS) $^ -o lgen $(LIBS)
+
 lsolve: $(SRCDIR)/lsolve_main.c $(TARGET)
 	$(CC) $(CFLAGS) $^ -o lsolve $(LIBS)
 
