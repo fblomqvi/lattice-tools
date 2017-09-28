@@ -17,6 +17,7 @@
 
 #include "dbg.h"
 #include "version.h"
+#include "configuration.h"
 #include "rng.h"
 #include "lattice_gen.h"
 #include <getopt.h>
@@ -39,24 +40,31 @@ typedef struct s_options
 {
     char* output;
     const gsl_rng_type* rng_type;
-    size_t dimension;
-    size_t exponent;
-    size_t q;
+    LGEN_PARAMS par;
     L_type type;
     unsigned long seed;
     int cols_as_basis;
+    int no_config;
+    int min_set;
+    int max_set;
 } OPT;
 
 static const OPT OPT_default = {
-    .output = NULL, .exponent = 1,
-    .dimension = 0, .cols_as_basis = 0,
-    .seed = 0, .type = LTYPE_RANDOM, .q = 0
+    .output = NULL, .cols_as_basis = 0,
+    .seed = 0, .type = LTYPE_RANDOM,
+    .no_config = 0,
+    .par = {
+        .dimension = 0, .exponent = 1,
+        .min = 0, .max = 0, .rng = NULL
+    }
 };
 
 static int gen_and_print(FILE* file, OPT* opt);
 static void parse_cmdline(int argc, char* const argv[], OPT* opt);
 static int print_help(FILE* file);
+static int print_config(FILE* file, const OPT* opt, gsl_rng* rng);
 
+static const char* type_get_name(L_type type);
 static int type_parse_name(const char* type);
 static int type_print_names(FILE* file);
 
@@ -88,38 +96,64 @@ error:
 
 static int gen_and_print(FILE* file, OPT* opt)
 {
-    LGEN_PARAMS params = { 
-        .dimension = opt->dimension, .exponent = opt->exponent,
-        .max = 0, .rng = NULL
-    };
-
     if(lattice_gen_type_needs_rng(opt->type))
     {
         opt->seed = opt->seed ? opt->seed : (unsigned long) time(NULL) + clock();
-        params.rng = rng_alloc_and_seed(opt->rng_type, opt->seed);
-        libcheck_mem(params.rng);
+        opt->par.rng = rng_alloc_and_seed(opt->rng_type, opt->seed);
+        libcheck_mem(opt->par.rng);
+
+        if(opt->type == LTYPE_SPC)
+        {
+            // Ignore the min option.
+            opt->par.min = 0;
+            opt->min_set = 0;
+            //TODO: fix error message
+            check(opt->par.max > 0, "the maximum value must be positive");
+        }
+        else
+        {
+            if(!opt->min_set)
+                opt->par.min = gsl_rng_min(opt->par.rng);
+            if(!opt->max_set)
+                opt->par.max = gsl_rng_max(opt->par.rng);
+        }
+    }
+    else
+    {
+        // Ignore the min and max options when printing the config.
+        opt->min_set = 0;
+        opt->max_set = 0;
     }
 
-    t_MAT_MPZ* M = lattice_gen(opt->type, &params);
+    if(!opt->no_config)
+    {
+        int rc = print_config(file, opt, opt->par.rng);
+        libcheck(rc == 0, "print_config failed");
+    }
+
+    t_MAT_MPZ* M = lattice_gen(opt->type, &opt->par);
     lcheck(M, error_a, "lattice_gen failed");
     MAT_MPZ_print_fpLLL(file, M, opt->cols_as_basis);
     MAT_MPZ_free(M);
-    gsl_rng_free(params.rng);
+    gsl_rng_free(opt->par.rng);
 
     return 0;
 
 error_a:
-    gsl_rng_free(params.rng);
+    gsl_rng_free(opt->par.rng);
 error:
     return -1;
 }
 
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 {
-    static const char* optstring = "d:e:r:S:tT:";
+    static const char* optstring = "Cd:e:m:M:r:S:tT:";
     static struct option longopt[] = {
+        {"no-print-config", no_argument, NULL, 'C'},
         {"dimension", required_argument, NULL, 'd'},
         {"exponent", required_argument, NULL, 'e'},
+        {"min", required_argument, NULL, 'm'},
+        {"max", required_argument, NULL, 'M'},
         {"rng", required_argument, NULL, 'r'},
         {"seed", required_argument, NULL, 'S'},
         {"transpose", no_argument, NULL, 't'},
@@ -138,15 +172,36 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     {
         switch(ch)
         {
+            case 'C':
+                opt->no_config = 1;
+                break;
             case 'd':
-                opt->dimension = strtoul(optarg, &endptr, 10);
-                check(*endptr == '\0' && !(errno == ERANGE && opt->dimension == ULONG_MAX),
+                opt->par.dimension = strtoul(optarg, &endptr, 10);
+                check(*endptr == '\0' &&
+                        !(errno == ERANGE && opt->par.dimension == ULONG_MAX),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 'e':
-                opt->exponent = strtoul(optarg, &endptr, 10);
-                check(*endptr == '\0' && !(errno == ERANGE && opt->exponent == ULONG_MAX),
+                opt->par.exponent = strtoul(optarg, &endptr, 10);
+                check(*endptr == '\0' &&
+                        !(errno == ERANGE && opt->par.exponent == ULONG_MAX),
                     "invalid argument to option '%c': '%s'", ch, optarg);
+                break;
+            case 'm':
+                opt->par.min = strtol(optarg, &endptr, 10);
+                check(*endptr == '\0' &&
+                    !(errno == ERANGE &&
+                        (opt->par.min == LONG_MAX || opt->par.min == LONG_MIN)),
+                    "invalid argument to option '%c': '%s'", ch, optarg);
+                opt->min_set = 1;
+                break;
+            case 'M':
+                opt->par.max = strtol(optarg, &endptr, 10);
+                check(*endptr == '\0' &&
+                    !(errno == ERANGE &&
+                        (opt->par.max == LONG_MAX || opt->par.max == LONG_MIN)),
+                    "invalid argument to option '%c': '%s'", ch, optarg);
+                opt->max_set = 1;
                 break;
             case 'r':
             {
@@ -192,6 +247,11 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     if(optind < argc)
         opt->output = argv[optind];
 
+    // Check for mandatory arguments.
+    check(opt->par.dimension > 0, "missing mandatory option -- '%c'", 'd');
+
+    check(opt->type != LTYPE_SPC || opt->max_set,
+            "option '%c' is mandatory for type %s", 'M', type_get_name(LTYPE_SPC));
     return;
 
 error:
@@ -208,19 +268,54 @@ static int print_help(FILE* file)
     static const char* helpstr = 
 "Generates lattices of the given type. Outputs to stdout if no output file is given.\n\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
+"  -C, --no-print-config        Do not output the configuration lgen was run with.\n"
 "  -d, --dimension=DIM          The dimension of the lattice to generate.\n"
 "  -e, --exponent=VAL           The value of the exponent when creating a lattice\n"
 "                                 of type A_d^e.\n"
+"  -m, --min=NUM                The smallest possible value for a coordinate (inclusive).\n"
+"                                 Defaults to the min-value of the chosen rng.\n"
+"  -M, --max=NUM                The largest possible value for a coordinate (exclusive).\n"
+"                                 Defaults to the max-value of the chosen rng.\n"
 "  -r, --rng=RNG                The random number generator to use. To see a list of all\n"
 "                                 available generators give 'list' as argument.\n"
 "  -S, --seed=SEED              The seed for the random number generator.\n"
 "  -t, --transpose              Transpose the output.\n"
-"  -T, --type=TYPE              The type of lattice to generate.\n"
+"  -T, --type=TYPE              The type of lattice to generate. Give 'list' as argument\n"
+"                                 to see a list of all available lattice types.\n"
 "      --help                   Display this help and exit.\n"
 "      --version                Output version information and exit.";
     
     return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0) 
                 ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
+static int print_config(FILE* file, const OPT* opt, gsl_rng* rng)
+{
+    struct config conf[] = {
+        {"dimension", (union value) opt->par.dimension, type_size, 1},
+        {"exponent", (union value) opt->par.exponent, type_size, opt->par.exponent > 1},
+        {"min", (union value) opt->par.min, type_long, opt->min_set},
+        {"max", (union value) opt->par.max, type_long, opt->max_set},
+        {"rng", (union value) (rng ? gsl_rng_name(rng) : ""), type_str, rng != NULL},
+        {"seed", (union value) opt->seed, type_ulong, opt->seed != 0},
+        {"transpose", (union value) opt->cols_as_basis, type_bool, 1},
+        {"type", (union value) type_get_name(opt->type), type_str, 1},
+    };
+
+    return util_print_genby_and_config(file, PROGRAM_NAME, NULL, NULL, conf);
+}
+
+static const char* type_get_name(L_type type)
+{
+    switch(type)
+    {
+        case LTYPE_A: return LNAME_TYPE_A;
+        case LTYPE_D: return LNAME_TYPE_D;
+        case LTYPE_D_DUAL: return LNAME_TYPE_D_DUAL;
+        case LTYPE_RANDOM: return LNAME_TYPE_RANDOM;
+        case LTYPE_SPC: return LNAME_TYPE_SPC;
+        default: return NULL;
+    }
 }
 
 static int type_parse_name(const char* type)

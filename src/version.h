@@ -26,6 +26,17 @@
 #define RELEASE_MONTH 7
 #define RELEASE_DAY 18
 
+#define PACKAGE_NAME "lattice-tools"
+
+struct version
+{
+    unsigned major;
+    unsigned minor;
+    unsigned patch;
+};
+
+extern const struct version g_current_version;
+
 int print_version(FILE* file);
 
 #endif /* FB_LIBLATTICE_VERSION_H */

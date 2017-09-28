@@ -113,7 +113,10 @@ t_MAT_MPZ* lattice_gen_random_square(LGEN_PARAMS* params)
 
     for(size_t i = 0; i < params->dimension; i++)
         for(size_t j = 0; j < params->dimension; j++)
-            mpz_set_ui(MAT_MPZ_get(M, i, j), gsl_rng_get(params->rng));
+        {
+            long val = params->min + (long) gsl_rng_uniform_int(params->rng, params->max);
+            mpz_set_si(MAT_MPZ_get(M, i, j), val);
+        }
 
     if(params->exponent > 1)
         MAT_MPZ_power(&M, params->exponent);
@@ -132,7 +135,8 @@ t_MAT_MPZ* lattice_gen_random_spc(LGEN_PARAMS* params)
     for(size_t i = 0; i < params->dimension - 1; i++)
     {
         mpz_set_ui(MAT_MPZ_get(M, i, i), 1);
-        mpz_set_ui(MAT_MPZ_get(M, params->dimension - 1, i), gsl_rng_get(params->rng));
+        mpz_set_ui(MAT_MPZ_get(M, i, params->dimension - 1),
+                1 + gsl_rng_uniform_int(params->rng, params->max - 1));
     }
     mpz_set_ui(MAT_MPZ_get(M, params->dimension - 1, params->dimension - 1), params->max);
 
