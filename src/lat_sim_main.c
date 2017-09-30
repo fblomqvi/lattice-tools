@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
 {
     OPT opt;
     int ret = EXIT_FAILURE;
-    argv[0] = PROGRAM_NAME = "lsim";
+    argv[0] = PROGRAM_NAME = "lat-sim";
     parse_cmdline(argc, argv, &opt);
 
     FILE* infile = fopen(opt.sim.infile, "r");

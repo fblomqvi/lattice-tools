@@ -37,14 +37,14 @@ $(TARGET): build $(OBJECTS)
 an-solve: $(SRCDIR)/an_solve_main.c $(TARGET)
 	$(CC) $(CFLAGS) $^ -o an-solve $(LIBS)
 	
-lgen: $(SRCDIR)/lgen_main.c $(TARGET)
-	$(CC) $(CFLAGS) $^ -o lgen $(LIBS)
+lat-gen: $(SRCDIR)/lat_gen_main.c $(TARGET)
+	$(CC) $(CFLAGS) $^ -o lat-gen $(LIBS)
 
-lsolve: $(SRCDIR)/lsolve_main.c $(TARGET)
-	$(CC) $(CFLAGS) $^ -o lsolve $(LIBS)
+lat-solve: $(SRCDIR)/lat_solve_main.c $(TARGET)
+	$(CC) $(CFLAGS) $^ -o lat-solve $(LIBS)
 
-lsim: $(SRCDIR)/lsim_main.c $(TARGET)
-	$(CC) $(CFLAGS) $^ -o lsim $(LIBS)
+lat-sim: $(SRCDIR)/lat_sim_main.c $(TARGET)
+	$(CC) $(CFLAGS) $^ -o lat-sim $(LIBS)
 
 rnd-point: $(SRCDIR)/rnd_point_main.c $(TARGET)
 	$(CC) $(CFLAGS) $^ -o rnd-point $(LIBS)

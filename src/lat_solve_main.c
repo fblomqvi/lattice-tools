@@ -408,7 +408,7 @@ int main(int argc, char* argv[])
 {
     OPT opt = OPT_default;
     int ret = EXIT_FAILURE;
-    argv[0] = PROGRAM_NAME = "lsolve";
+    argv[0] = PROGRAM_NAME = "lat-solve";
     parse_cmdline(argc, argv, &opt);
 
     FILE* outfile = stdout;

@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
 {
     OPT opt = OPT_default;
     int ret = EXIT_FAILURE;
-    argv[0] = PROGRAM_NAME = "lgen";
+    argv[0] = PROGRAM_NAME = "lat-gen";
     parse_cmdline(argc, argv, &opt);
 
     FILE* outfile = stdout;
@@ -291,7 +291,7 @@ static int print_help(FILE* file)
 "Mandatory arguments to long options are mandatory for short options too.\n"
 "  -b, --bits=BITS              Generates matrix entries with absolute value smaller\n"
 "                                 than 2^BITS.\n"
-"  -C, --no-print-config        Do not output the configuration lgen was run with.\n"
+"  -C, --no-print-config        Do not output the configuration the program was run with.\n"
 "  -d, --dimension=DIM          The dimension of the lattice to generate. This option\n"
 "                                 is mandatory.\n"
 "  -e, --exponent=VAL           Output the VAL:th power of the basis matrix.\n"
