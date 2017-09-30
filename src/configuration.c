@@ -60,7 +60,7 @@ int util_print_genby_and_config(FILE* file, const char* prog_name,
     while(conf->name)
         libcheck(print_conf_line(file, conf++) > 0, "print_conf_line failed");
 
-    libcheck(fprintf(file, "%s\n", HASHLINE) > 0, "printing error");
+    libcheck(fprintf(file, HASHLINE "\n") > 0, "printing error");
     return 0;
 
 error:
@@ -96,6 +96,7 @@ static int print_conf_line(FILE* file, struct config* conf)
             break;
         default:
             rc = -1;
+            break;
     }
     return rc;
 }

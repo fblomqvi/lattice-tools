@@ -35,11 +35,11 @@ typedef struct s_lgen_params
     gsl_rng* rng;
     size_t dimension;
     size_t exponent;
-    long min;
-    long max;
+    unsigned long range;
+    long offset;
 } LGEN_PARAMS;
 
-static int lattice_gen_type_needs_rng(L_type type)
+static inline int lattice_gen_type_needs_rng(L_type type)
 { return (type >= LTYPE_RANDOM); }
 
 t_MAT_MPZ* lattice_gen(L_type type, LGEN_PARAMS* params);
@@ -52,6 +52,9 @@ t_MAT_MPZ* lattice_gen_D(size_t dimension, size_t exponent);
 t_MAT_MPZ* lattice_gen_D_dual(size_t dimension, size_t exponent);
 
 t_MAT_MPZ* lattice_gen_random_square(LGEN_PARAMS* params);
-t_MAT_MPZ* lattice_gen_random_spc(LGEN_PARAMS*);
+t_MAT_MPZ* lattice_gen_random_spc(LGEN_PARAMS* params);
+
+t_MAT_MPZ* lattice_gen_random_square_gmp(size_t dimension, size_t exponent, 
+                                        unsigned long seed, size_t bits);
 
 #endif /* FB_LIBLATTICE_LATTICE_GEN_H */

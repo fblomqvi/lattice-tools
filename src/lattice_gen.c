@@ -17,6 +17,7 @@
 
 #include "dbg.h"
 #include "lattice_gen.h"
+#include "gmp.h"
 
 static t_MAT_MPZ* lgen_An_helper(size_t n);
 static t_MAT_MPZ* lgen_Anm_helper(size_t n, size_t m);
@@ -114,7 +115,7 @@ t_MAT_MPZ* lattice_gen_random_square(LGEN_PARAMS* params)
     for(size_t i = 0; i < params->dimension; i++)
         for(size_t j = 0; j < params->dimension; j++)
         {
-            long val = params->min + (long) gsl_rng_uniform_int(params->rng, params->max);
+            long val = params->offset + gsl_rng_uniform_int(params->rng, params->range);
             mpz_set_si(MAT_MPZ_get(M, i, j), val);
         }
 
@@ -136,13 +137,50 @@ t_MAT_MPZ* lattice_gen_random_spc(LGEN_PARAMS* params)
     {
         mpz_set_ui(MAT_MPZ_get(M, i, i), 1);
         mpz_set_ui(MAT_MPZ_get(M, i, params->dimension - 1),
-                1 + gsl_rng_uniform_int(params->rng, params->max - 1));
+                1 + gsl_rng_uniform_int(params->rng, params->range - 1));
     }
-    mpz_set_ui(MAT_MPZ_get(M, params->dimension - 1, params->dimension - 1), params->max);
+    mpz_set_ui(MAT_MPZ_get(M, params->dimension - 1, params->dimension - 1), params->range);
 
     if(params->exponent > 1)
         MAT_MPZ_power(&M, params->exponent);
 
+    return M;
+
+error:
+    return NULL;
+}
+
+t_MAT_MPZ* lattice_gen_random_square_gmp(size_t dimension, size_t exponent, 
+                                        unsigned long seed, size_t bits)
+{
+    t_MAT_MPZ* M = MAT_MPZ_alloc(dimension, dimension);
+    libcheck_mem(M);
+
+    mpz_t offset, range;
+    mpz_inits(offset, range, NULL);
+    mpz_set_ui(range, 1);
+    mpz_mul_2exp(range, range, bits);
+    mpz_ui_sub(offset, 1, range);
+    mpz_sub(range, range, offset);
+    debug_do(gmp_fprintf(stderr, "offset: %Zd\n", offset));
+    debug_do(gmp_fprintf(stderr, "range: %Zd\n", range));
+
+    gmp_randstate_t state;
+    gmp_randinit_mt(state);
+    gmp_randseed_ui(state, seed);
+
+    for(size_t i = 0; i < dimension; i++)
+        for(size_t j = 0; j < dimension; j++)
+        {
+            mpz_urandomm(MAT_MPZ_get(M, i, j), state, range);
+            mpz_add(MAT_MPZ_get(M, i, j), MAT_MPZ_get(M, i, j), offset);
+        }
+
+    if(exponent > 1)
+        MAT_MPZ_power(&M, exponent);
+
+    gmp_randclear(state);
+    mpz_clears(offset, range, NULL);
     return M;
 
 error:
