@@ -292,7 +292,8 @@ static int print_help(FILE* file)
 "  -b, --bits=BITS              Generates matrix entries with absolute value smaller\n"
 "                                 than 2^BITS.\n"
 "  -C, --no-print-config        Do not output the configuration lgen was run with.\n"
-"  -d, --dimension=DIM          The dimension of the lattice to generate.\n"
+"  -d, --dimension=DIM          The dimension of the lattice to generate. This option\n"
+"                                 is mandatory.\n"
 "  -e, --exponent=VAL           Output the VAL:th power of the basis matrix.\n"
 "  -G, --gmp-for-rand           Use the gmp library for randomness. This is the default\n"
 "                                 if BITS > 31. Therefore the purpose of this option is\n"
@@ -316,7 +317,8 @@ static int print_help(FILE* file)
 "      --version                Output version information and exit.\n\n"
 "The options 'b' and 'm' combined with 'M' are alternative ways of specifying\n"
 "the range of the matrix entries. If the user gives options from both categories,\n"
-"then the one specified last takes precedence";
+"then the one specified last takes precedence.\n\n"
+"See the man page for further details.";
     
     return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0) 
                 ? EXIT_FAILURE : EXIT_SUCCESS;
