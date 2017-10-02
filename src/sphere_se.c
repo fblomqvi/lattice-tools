@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -121,16 +121,6 @@ void SDSE_WS_free(SDSE_WS *ws)
     }
 }
 
-/* Calculate the end return the value of ŷ_k. ŷ_k is y_k from which have been
- * subtracted the kth row values of R multiplied by corresponding values of s 
- * excluding the diagonal. Example with k=2:
- *   [d0  #  #  #  #]      [s0]
- *   [ 0 d1  #  #  #]      [s1]
- * R=[ 0  0 d2  a  b]    s=[s2]  =>  ŷ_2 = y_2 - a*s3 - b*s4
- *   [ 0  0  0 d3  #]      [s3]
- *   [ 0  0  0  0 d4]      [s4]
- */
-
 static double calc_yhat(size_t k, const gsl_matrix* R, const double* y, const double* s)
 {
     size_t m = R->size2;
@@ -168,12 +158,6 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
     size_t k = m - 1;
     ws->dist[k] = 0;
 
-    /*
-    ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
-    ws->s[k] = round(ws->e[k]);
-    double y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
-    ws->step[k] = sgn(y);
-    */
     double y;
     move_down_calculations(k, &y, ws);
 
@@ -186,12 +170,6 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
             {
                 k--;        // Move down
                 ws->dist[k] = new_dist;
-                /*
-                ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
-                ws->s[k] = round(ws->e[k]);
-                y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
-                ws->step[k] = sgn(y);
-                */
                 move_down_calculations(k, &y, ws);
             }
             else
@@ -199,11 +177,6 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
                 memcpy(ws->x, ws->s, m * sizeof(double));
                 dist_min = new_dist;
                 k++;        // Move up
-                /*
-                ws->s[k] += ws->step[k];
-                y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
-                ws->step[k] = -ws->step[k] - sgn(ws->step[k]);
-                */
                 move_up_calculations(k, &y, ws);
             }
         }
@@ -214,11 +187,6 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
             else
             {
                 k++;        // Move up
-                /*
-                ws->s[k] += ws->step[k];
-                y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
-                ws->step[k] = -ws->step[k] - sgn(ws->step[k]);
-                */
                 move_up_calculations(k, &y, ws);
             }
         }
