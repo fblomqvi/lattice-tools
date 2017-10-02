@@ -144,7 +144,22 @@ static double calc_yhat(size_t k, const gsl_matrix* R, const double* y, const do
 static double sgn(double y)
 { return y <= 0.0 ? -1 : 1; }
 
-void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_WS *ws)
+static void move_down_calculations(size_t k, double* y, SDSE_WS* ws)
+{
+    ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
+    ws->s[k] = round(ws->e[k]);
+    *y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+    ws->step[k] = sgn(*y);
+}
+
+static void move_up_calculations(size_t k, double* y, SDSE_WS* ws)
+{
+    ws->s[k] += ws->step[k];
+    *y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+    ws->step[k] = -ws->step[k] - sgn(ws->step[k]);
+}
+
+void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_WS* ws)
 {   
     gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
 
@@ -153,9 +168,76 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
     size_t k = m - 1;
     ws->dist[k] = 0;
 
+    /*
     ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
     ws->s[k] = round(ws->e[k]);
     double y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+    ws->step[k] = sgn(y);
+    */
+    double y;
+    move_down_calculations(k, &y, ws);
+
+    while(1)
+    {
+        double new_dist = ws->dist[k] + y * y;
+        if(new_dist < dist_min)
+        {
+            if(k > 0)
+            {
+                k--;        // Move down
+                ws->dist[k] = new_dist;
+                /*
+                ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
+                ws->s[k] = round(ws->e[k]);
+                y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+                ws->step[k] = sgn(y);
+                */
+                move_down_calculations(k, &y, ws);
+            }
+            else
+            {
+                memcpy(ws->x, ws->s, m * sizeof(double));
+                dist_min = new_dist;
+                k++;        // Move up
+                /*
+                ws->s[k] += ws->step[k];
+                y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+                ws->step[k] = -ws->step[k] - sgn(ws->step[k]);
+                */
+                move_up_calculations(k, &y, ws);
+            }
+        }
+        else
+        {
+            if(k == m - 1)
+                break;
+            else
+            {
+                k++;        // Move up
+                /*
+                ws->s[k] += ws->step[k];
+                y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+                ws->step[k] = -ws->step[k] - sgn(ws->step[k]);
+                */
+                move_up_calculations(k, &y, ws);
+            }
+        }
+    }
+
+    gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
+}
+
+void sphere_se_svp(gsl_vector* clp, const gsl_matrix* B, SDSE_WS* ws)
+{   
+    size_t m = ws->R->size2;
+    double dist_min = INFINITY;
+    size_t k = m - 1;
+    ws->dist[k] = 0;
+    memset(ws->y, 0, m * sizeof(double));
+
+    ws->e[k] = ws->s[k] = 0.0;
+    ws->s[k] = round(ws->e[k]);
+    double y = 0.0;
     ws->step[k] = sgn(y);
 
     while(1)
@@ -167,19 +249,17 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
             {
                 k--;        // Move down
                 ws->dist[k] = new_dist;
-                ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
-                ws->s[k] = round(ws->e[k]);
-                y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
-                ws->step[k] = sgn(y);
+                move_down_calculations(k, &y, ws);
             }
             else
             {
-                memcpy(ws->x, ws->s, m * sizeof(double));
-                dist_min = new_dist;
-                k++;        // Move up
-                ws->s[k] += ws->step[k];
-                y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
-                ws->step[k] = -ws->step[k] - sgn(ws->step[k]);
+                if(new_dist != 0.0)
+                {
+                    memcpy(ws->x, ws->s, m * sizeof(double));
+                    dist_min = new_dist;
+                    k++;        // Move up
+                }
+                move_up_calculations(k, &y, ws);
             }
         }
         else
@@ -189,9 +269,7 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
             else
             {
                 k++;        // Move up
-                ws->s[k] += ws->step[k];
-                y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
-                ws->step[k] = -ws->step[k] - sgn(ws->step[k]);
+                move_up_calculations(k, &y, ws);
             }
         }
     }

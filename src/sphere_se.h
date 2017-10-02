@@ -29,4 +29,6 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SDSE_W
 
 void sphere_se_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws);
 
+void sphere_se_svp(gsl_vector* clp, const gsl_matrix* B, SDSE_WS* ws);
+
 #endif /* FB_LIBLATTICE_SPHERE_SE_H */

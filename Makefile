@@ -46,6 +46,9 @@ lat-solve: $(SRCDIR)/lat_solve_main.c $(TARGET)
 lat-sim: $(SRCDIR)/lat_sim_main.c $(TARGET)
 	$(CC) $(CFLAGS) $^ -o lat-sim $(LIBS)
 
+lat-svp: $(SRCDIR)/lat_svp_main.c $(TARGET)
+	$(CC) $(CFLAGS) $^ -o lat-svp $(LIBS)
+
 rnd-point: $(SRCDIR)/rnd_point_main.c $(TARGET)
 	$(CC) $(CFLAGS) $^ -o rnd-point $(LIBS)
 
