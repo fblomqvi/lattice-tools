@@ -228,7 +228,7 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
 }
 
 void sphere_se_svp(gsl_vector* clp, const gsl_matrix* B, SDSE_WS* ws)
-{   
+{
     size_t m = ws->R->size2;
     double dist_min = INFINITY;
     size_t k = m - 1;

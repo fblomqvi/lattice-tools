@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,7 +11,7 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
+   this program. If not, see <http://www.gnu.org/licenses/>.
    
    Written by Ferdinand Blomqvist. */
 
@@ -29,7 +29,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-typedef struct s_options 
+typedef struct s_options
 {
     char* basis_file;
     char* output;
@@ -37,13 +37,13 @@ typedef struct s_options
 } OPT;
 
 static const OPT OPT_default = {
-    .basis_file = NULL, .output = NULL, 
+    .basis_file = NULL, .output = NULL,
     .rows_as_basis = 0
 };
 
 static int print_help(FILE* file)
 {
-    static const char* formatstr = 
+    static const char* formatstr =
 "Usage: %s [OPTION]... INPUT\n"
 "  or:  %s [OPTION]... INPUT OUTPUT\n\n%s\n";
 
@@ -55,8 +55,8 @@ static int print_help(FILE* file)
 "  -t, --transpose              Transpose the basis read from INPUT.\n"
 "      --help                   Display this help and exit.\n"
 "      --version                Output version information and exit.";
-    
-    return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0) 
+
+    return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0)
                 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
@@ -94,7 +94,7 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     if(strcmp(argv[optind], "-"))
         opt->basis_file = argv[optind];
     optind++;
-    
+
     if(optind < argc)
         opt->output = argv[optind];
 
@@ -112,7 +112,7 @@ static int print_lattice_point(FILE* file, const double* cword, size_t cword_len
         libcheck(fprintf(file, " %f", cword[i]) > 0, "printing failed");
     libcheck(fprintf(file, " %f ]\n", cword[cword_len-1]) > 0, "printing failed");
     return 0;
-    
+
 error:
     return -1;
 }
