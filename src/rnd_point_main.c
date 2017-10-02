@@ -157,7 +157,7 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
         .output_conf = 1, .hyp_mode = HYP_MODE_NO,
         .min_set = 0, .max_set = 0,
         .print_point = print_cword_binary, .hyperplane = NULL,
-        .basis = NULL,
+        .basis = NULL, .rows_as_basis = 1,
         .mode = MODE_STANDARD, .rng_type = gsl_rng_default };
 
     // Parsing the command line
@@ -231,7 +231,7 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
                 break;
             }
             case 't':
-                opt->rows_as_basis = 1;
+                opt->rows_as_basis = 0;
                 break;
             case 'Z':
                 opt->mode = MODE_ZERO;

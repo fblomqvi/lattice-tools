@@ -60,7 +60,7 @@ typedef struct s_options
 
 static const OPT OPT_default = {
     .basis_file = NULL, .output = NULL, 
-    .cword_num = 0, .rows_as_basis = 0,
+    .cword_num = 0, .rows_as_basis = 1,
     .no_config = 0, .binary_out = 1,
     .verbose = 0, .alg = ALG_SPHERE_SE,
     .mode = MODE_STANDARD, .basis = NULL,
@@ -148,7 +148,7 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 opt->binary_out = 0;
                 break;
             case 't':
-                opt->rows_as_basis = 1;
+                opt->rows_as_basis = 0;
                 break;
             case 'v':
                 opt->verbose = 1;

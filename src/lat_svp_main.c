@@ -38,7 +38,7 @@ typedef struct s_options
 
 static const OPT OPT_default = {
     .basis_file = NULL, .output = NULL,
-    .rows_as_basis = 0
+    .rows_as_basis = 1
 };
 
 static int print_help(FILE* file)
@@ -79,7 +79,7 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
         switch(ch)
         {
             case 't':
-                opt->rows_as_basis = 1;
+                opt->rows_as_basis = 0;
                 break;
             case 'h':
                 exit(print_help(stdout));
