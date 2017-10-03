@@ -139,7 +139,7 @@ static int solve_svp(FILE* outfile, OPT* opt)
 
     SDSE_WS* ws;
     int lt_error = SDSE_WS_alloc_and_init(&ws, basis);
-    lcheck_lt(lt_error == 0, error_a, lt_error, "SDSE_WS_alloc_and_init failed");
+    lt_lcheck(lt_error, error_a, "SDSE_WS_alloc_and_init failed");
 
     double* slp = malloc(basis->size1 * sizeof(double));
     lcheck_mem(slp, error_b);
@@ -147,7 +147,6 @@ static int solve_svp(FILE* outfile, OPT* opt)
     gsl_vector_view v_slp = gsl_vector_view_array(slp, basis->size1);
     sphere_se_svp(&v_slp.vector, basis, ws);
 
-    debug("Too far!");
     int rc = print_dvector_std(outfile, slp, basis->size1, printing_fmt_get(opt->format));
     lcheck(rc == 0, error_c, "print_dvector_std failed");
     ret = EXIT_SUCCESS;
@@ -167,6 +166,8 @@ int main(int argc, char* argv[])
     OPT opt = OPT_default;
     int ret = EXIT_FAILURE;
     argv[0] = PROGRAM_NAME = "lat-svp";
+
+    gsl_set_error_handler_off();
     parse_cmdline(argc, argv, &opt);
 
     FILE* outfile = stdout;

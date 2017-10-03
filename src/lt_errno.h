@@ -24,8 +24,7 @@ enum
 { 
     LT_SUCCESS = 0, 
     LT_FAILURE = -1,
-    LT_ELINDEP = 1024,   /* Basis vectors are linearly dependent */
-    LT_ENOMEM,          /* malloc failed */
+    LT_EINVAL = 1024,       /* invalid argument supplied by user */
     LT_ESYSTEM
 };
 

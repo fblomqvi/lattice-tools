@@ -26,6 +26,7 @@
 #define FB_UTILITY_DBG_H
 
 #include "prog_name.h"
+#include "lt_errno.h"
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -38,6 +39,7 @@ void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
 #ifdef NDEBUG
 #define debug(msg, ...)
 #define debug_err(msg, ...)
+#define debug_err_lt(lt_errno, msg, ...)
 #define debugf(file, msg, ...)
 #define debug_do(statement)
 #else /* NDEBUG */
@@ -48,6 +50,10 @@ void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
 
 #define debug_err(msg, ...) \
     fprintf_we(stderr, "[DEBUG] (%s:%d) " msg,\
+             __FILE__, __LINE__, ##__VA_ARGS__)
+
+#define debug_err_lt(lt_errno, msg, ...) \
+    fprintf_we_lt(stderr, lt_errno, "[DEBUG] (%s:%d) " msg,\
              __FILE__, __LINE__, ##__VA_ARGS__)
 
 #define debugf(file, msg, ...) \
@@ -61,6 +67,10 @@ void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
 
 #define debug_err(msg, ...) \
     fprintf_we(stderr, "%s: [DEBUG] (%s:%d) " msg,\
+             PROGRAM_NAME, __FILE__, __LINE__, ##__VA_ARGS__)
+
+#define debug_err_lt(lt_errno, msg, ...) \
+    fprintf_we_lt(stderr, lt_errno, "%s: [DEBUG] (%s:%d) " msg,\
              PROGRAM_NAME, __FILE__, __LINE__, ##__VA_ARGS__)
 
 #define debugf(file, msg, ...) \
@@ -153,21 +163,33 @@ void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
 
 /* Checks if 'c' is true or false. If 'c' is false, then the error is logged by
  * 'print_func', errno is cleared, and the execution jumps to 'label'. */
-#define lcheck_lt_pf(c, print_func, label, lt_errno, msg, ...) \
+#define lt_lcheck_pf(lt_errno, print_func, label, msg, ...) \
     do {\
-        if(!(c)) \
+        if((lt_errno) != LT_SUCCESS) \
+        {\
+            print_func(lt_errno, msg, ##__VA_ARGS__);\
+            if(lt_errno == LT_ESYSTEM) errno = 0;\
+            goto label;\
+        }\
+    } while(0)
+
+/* Library version of lt_lcheck_pf. Exactly like lcheck_pf(), except that errno is
+ * not set to zero. */
+#define lt_llibcheck_pf(lt_errno, print_func, label, msg, ...) \
+    do {\
+        if((lt_errno) != LT_SUCCESS) \
         {\
             print_func(lt_errno, msg, ##__VA_ARGS__);\
             goto label;\
         }\
     } while(0)
 
-#define llibcheck_se_pf(c, print_func, label, lt_errno, error_code) \
+#define lcheck_se_pf(c, print_func, label, lt_errno, error_code, msg, ...) \
     do {\
         if(!(c)) \
         {\
             lt_errno = error_code;\
-            print_func("%s", lt_strerror(error_code));\
+            print_func(lt_errno, msg, ##__VA_ARGS__);\
             goto label;\
         }\
     } while(0)
@@ -177,10 +199,18 @@ void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
 #define lcheck_dbg(c, label, msg, ...) lcheck_pf(c, debug_err, label, msg, ##__VA_ARGS__)
 #define llibcheck(c, label, msg, ...) llibcheck_pf(c, debug_err, label, msg, ##__VA_ARGS__)
 
+#define lt_lcheck(e, label, msg, ...) \
+    lt_lcheck_pf(e, log_err_lt, label, msg, ##__VA_ARGS__)
+#define lt_llibcheck(e, label, msg, ...) \
+    lt_llibcheck_pf(e, log_err_lt, label, msg, ##__VA_ARGS__)
+
 /* Convenience macros that uses the standardized 'error' label. */
 #define check(c, msg, ...) lcheck(c, error, msg, ##__VA_ARGS__)
 #define check_dbg(c, msg, ...) lcheck_dbg(c, error, msg, ##__VA_ARGS__)
 #define libcheck(c, msg, ...) llibcheck(c, error, msg, ##__VA_ARGS__)
+
+#define lt_check(e, msg, ...) lt_lcheck(e, error, msg, ##__VA_ARGS__)
+#define lt_libcheck(e, msg, ...) lt_llibcheck(e, error, msg, ##__VA_ARGS__)
 
 /* Convenience macros for memory allocation checking. */
 #define lcheck_pf_mem(c, print_func, label) \
@@ -196,13 +226,25 @@ void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
 #define libcheck_mem(c) llibcheck_mem(c, error)
 
 /* More conveniece macros */
-#define lcheck_lt(c, label, lt_errno, msg, ...) \
-    lcheck_lt_pf(c, log_err_lt, label, lt_errno, msg, ##__VA_ARGS__)
-#define check_lt(c, lt_errno, msg, ...) \
-    lcheck_lt_pf(c, log_err_lt, error, lt_errno, msg, ##__VA_ARGS__)
+#define lcheck_se(c, label, lt_errno, error_code, msg, ...) \
+    lcheck_se_pf(c, log_err_lt, label, lt_errno, error_code, msg, ##__VA_ARGS__)
+#define check_se(c, lt_errno, error_code, msg, ...) \
+    lcheck_se(c, error, lt_errno, error_code, msg, ##__VA_ARGS__)
 
-#define llibcheck_se(c, label, lt_errno, error_code) \
-    llibcheck_se_pf(c, debug, label, lt_errno, error_code)
+#define llibcheck_se(c, label, lt_errno, error_code, msg, ...) \
+    lcheck_se_pf(c, debug_err_lt, label, lt_errno, error_code, msg, ##__VA_ARGS__)
+#define libcheck_se(c, lt_errno, error_code, msg, ...) \
+    llibcheck_se(c, error, lt_errno, error_code, msg, ##__VA_ARGS__)
+
+#define lcheck_se_mem(c, label, lt_errno, error_code) \
+    lcheck_se(c, label, lt_errno, error_code, "Memory allocation error")
+#define check_se_mem(c, lt_errno, error_code) \
+    lcheck_se_mem(c, error, lt_errno, error_code)
+
+#define llibcheck_se_mem(c, label, lt_errno, error_code) \
+    llibcheck_se(c, label, lt_errno, error_code, "Memory allocation error")
+#define libcheck_se_mem(c, lt_errno, error_code) \
+    llibcheck_se_mem(c, error, lt_errno, error_code)
 
 //#define check_fatal(c) check(c, "Fatal error")
 

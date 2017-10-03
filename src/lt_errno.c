@@ -28,10 +28,14 @@ const char* lt_strerror(const int lt_errno)
             return "success";
         case LT_FAILURE:
             return "failure";
+            /*
         case LT_ELINDEP:
             return "the basis vectors are linearly dependent";
         case LT_ENOMEM:
             return "malloc failed";
+            */
+        case LT_EINVAL:
+            return "invalid argument supplied by user";
         case LT_ESYSTEM:
             return strerror(errno);
         default:

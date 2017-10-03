@@ -200,6 +200,8 @@ int main(int argc, char* argv[])
     OPT opt;
     int ret = EXIT_FAILURE;
     argv[0] = PROGRAM_NAME = "lat-sim";
+
+    gsl_set_error_handler_off();
     parse_cmdline(argc, argv, &opt);
 
     FILE* infile = fopen(opt.sim.infile, "r");

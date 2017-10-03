@@ -21,21 +21,21 @@ gsl_vector *clone_vector(const gsl_vector *v) {
 
 int utility_compute_QR_decomposition(gsl_matrix* Q, gsl_matrix* R, const gsl_matrix* B)
 {
-    int ret = LT_FAILURE;
+    int lt_errno = LT_SUCCESS;
     size_t n = B->size1;
     size_t m = B->size2;
     size_t tausize = (n < m) ? n : m;
     gsl_matrix* B_copy = gsl_matrix_alloc(n, m);
-    libcheck_mem(B_copy);
+    libcheck_se_mem(B_copy, lt_errno, GSL_ENOMEM);
 
     gsl_vector* tau = gsl_vector_alloc(tausize);
-    llibcheck_mem(tau, error_a);
+    llibcheck_se_mem(B_copy, error_a, lt_errno, GSL_ENOMEM);
 
     gsl_matrix_memcpy(B_copy, B);
-    int rc = gsl_linalg_QR_decomp(B_copy, tau);
-    llibcheck(rc == 0, error_a, "gsl_linalg_QR_decomp failed");
-    rc = gsl_linalg_QR_unpack(B_copy, tau, Q, R);
-    llibcheck(rc == 0, error_a, "gsl_linalg_QR_unpack failed");
+    lt_errno = gsl_linalg_QR_decomp(B_copy, tau);
+    lt_llibcheck(lt_errno, error_b, "gsl_linalg_QR_decomp failed");
+    lt_errno = gsl_linalg_QR_unpack(B_copy, tau, Q, R);
+    lt_llibcheck(lt_errno, error_b, "gsl_linalg_QR_unpack failed");
 
     // Make the diagonal of R positive, as required by the algorithms.
     for(size_t i = 0; i < m; i++)
@@ -49,12 +49,12 @@ int utility_compute_QR_decomposition(gsl_matrix* Q, gsl_matrix* R, const gsl_mat
         }
     }
 
-    ret = LT_SUCCESS;
+error_b:
     gsl_vector_free(tau);
 error_a:
     gsl_matrix_free(B_copy);
 error:
-    return ret;
+    return lt_errno;
 }
 
 int utility_Rmm_is_not_singular(const gsl_matrix* R, double epsilon)

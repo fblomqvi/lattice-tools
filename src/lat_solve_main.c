@@ -16,6 +16,7 @@
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
+#include "lt_errno.h"
 #include "version.h"
 #include "rng.h"
 #include "rnd_point.h"
@@ -31,6 +32,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <math.h>
+#include <gsl/gsl_errno.h>
 
 #define EPSILON 10E-10
 
@@ -100,7 +102,7 @@ static int print_help(FILE* file)
 "      --version                Output version information and exit.";
     
     return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0) 
-                ? EXIT_FAILURE : EXIT_SUCCESS;
+                ? LT_FAILURE : LT_SUCCESS;
 }
 
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
@@ -190,14 +192,14 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 
 error:
     fprintf(stderr, "Try '%s --help' for more information.\n", PROGRAM_NAME);
-    exit(EXIT_FAILURE);
+    exit(LT_FAILURE);
 }
 
 static int read_cword_binary(void* cword, size_t cword_len, size_t dt_size)
 {
     size_t rc = fread(cword, dt_size, cword_len, stdin);
     check(rc == cword_len, "fread failed");
-    return 0;
+    return LT_SUCCESS;
 
 error:
     if(feof(stdin))
@@ -205,7 +207,7 @@ error:
         log_err_ne("Could not read the next codeword; end of file reached");
         clearerr(stdin);
     }
-    return -1;
+    return LT_FAILURE;
 }
 
 static RND_PNT_CONF* get_config_binary(FILE* infile, const OPT* opt)
@@ -234,7 +236,6 @@ error:
 
 static int parse_basis_init_ws(OPT* opt)
 {
-    debug("basis file: %s", opt->basis_file);
     FILE* infile = fopen(opt->basis_file, "r");
     check(infile, "Could not open '%s' for reading", opt->basis_file);
 
@@ -242,14 +243,21 @@ static int parse_basis_init_ws(OPT* opt)
     fclose(infile);
     check(opt->basis, "error when processing input file '%s'", opt->basis_file);
 
-    algorithm_get_fp_init_ws(&opt->solve, &opt->ws, opt->alg, opt->basis);
+    int rc = algorithm_get_fp_init_ws(&opt->solve, &opt->ws, opt->alg, opt->basis);
+    lt_lcheck(rc, error_a, "algorithm_get_fp_init_ws failed");
     if(opt->mode == MODE_COMPARE)
-        algorithm_get_fp_init_ws(&opt->solve_cmp, &opt->ws_cmp, opt->alg_cmp, opt->basis);
+    {
+        rc = algorithm_get_fp_init_ws(&opt->solve_cmp, &opt->ws_cmp,
+                                    opt->alg_cmp, opt->basis);
+        lt_lcheck(rc, error_a, "algorithm_get_fp_init_ws failed");
+    }
 
-    return 0;
+    return LT_SUCCESS;
 
+error_a:
+    gsl_matrix_free(opt->basis);
 error:
-    return -1;
+    return LT_FAILURE;
 }
 
 static void free_basis_and_ws(OPT* opt)
@@ -262,7 +270,7 @@ static void free_basis_and_ws(OPT* opt)
 
 static int solve(FILE* outfile, OPT* opt)
 {
-    int ret = EXIT_FAILURE;
+    int ret = LT_FAILURE;
     int rc = parse_basis_init_ws(opt);
     libcheck(rc == 0, "parse_basis_init_ws failed");
 
@@ -270,7 +278,7 @@ static int solve(FILE* outfile, OPT* opt)
     llibcheck(conf, error_a, "get_config_binary failed");
 
     double* cword = malloc(2 * conf->dimension * sizeof(double));
-    llibcheck_mem(cword, error_b);
+    lcheck_mem(cword, error_b);
 
     double* clp = cword + conf->dimension;
     gsl_vector_view v_cword = gsl_vector_view_array(cword, conf->dimension);
@@ -285,7 +293,7 @@ static int solve(FILE* outfile, OPT* opt)
             llibcheck(rc == 0, error_c, "read_cword_binary failed");
             
             opt->solve(&v_clp.vector, &v_cword.vector, opt->basis, opt->ws);
-            llibcheck(fwrite(clp, sizeof(long), conf->dimension, outfile) 
+            lcheck(fwrite(clp, sizeof(long), conf->dimension, outfile)
                     == conf->dimension, error_c, "fwrite failed");
             i++;
         }
@@ -300,16 +308,16 @@ static int solve(FILE* outfile, OPT* opt)
             llibcheck(rc == 0, error_c, "read_cword_binary failed");
             
             rc = print_dvector_cword(outfile, cword, conf->dimension, fmt);
-            llibcheck(rc == 0, error_c, "print_dvector_cword failed");
+            lcheck(rc == 0, error_c, "print_dvector_cword failed");
 
             opt->solve(&v_clp.vector, &v_cword.vector, opt->basis, opt->ws);
             rc = print_dvector_std(outfile, clp, conf->dimension, fmt);
-            llibcheck(rc == 0, error_c, "print_dvector_std failed");
+            lcheck(rc == 0, error_c, "print_dvector_std failed");
             i++;
         }
     }
 
-    ret = EXIT_SUCCESS;
+    ret = LT_SUCCESS;
 
 error_c:
     free_basis_and_ws(opt);
@@ -334,20 +342,20 @@ static int print_details(FILE* file, const double* cword, const double* clp1,
                         const double* clp2, size_t len, const PRINTING_FMT* fmt)
 {
     int rc = print_dvector(file, cword, len, fmt, "cword: ", "\n");
-    libcheck(rc == 0, "print_dvector failed");
+    check(rc == 0, "print_dvector failed");
     rc = print_dvector(file, clp1, len, fmt, "clp1:  ", "\n");
-    libcheck(rc == 0, "print_dvector failed");
+    check(rc == 0, "print_dvector failed");
     rc = print_dvector(file, clp2, len, fmt, "clp2:  ", "\n");
-    libcheck(rc == 0, "print_dvector failed");
-    return 0;
+    check(rc == 0, "print_dvector failed");
+    return LT_SUCCESS;
 
 error:
-    return -1;
+    return LT_FAILURE;
 }
 
 static int compare(FILE* outfile, OPT* opt)
 {
-    int ret = EXIT_FAILURE;
+    int ret = LT_FAILURE;
     int rc = parse_basis_init_ws(opt);
     libcheck(rc == 0, "parse_basis_init_ws failed");
 
@@ -355,7 +363,7 @@ static int compare(FILE* outfile, OPT* opt)
     llibcheck(conf, error_a, "get_config_binary failed");
 
     double* cword = malloc(3 * conf->dimension * sizeof(double));
-    llibcheck_mem(cword, error_b);
+    lcheck_mem(cword, error_b);
 
     double* clp1 = cword + conf->dimension;
     double* clp2 = clp1 + conf->dimension;
@@ -369,7 +377,7 @@ static int compare(FILE* outfile, OPT* opt)
     while(!conf->num_cwords || num_checked < conf->num_cwords)
     {
         int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
-        llibcheck(rc == 0, error_c, "read_cword_binary failed");
+        lcheck(rc == 0, error_c, "read_cword_binary failed");
 
         opt->solve(&v_clp1.vector, &v_cword.vector, opt->basis, opt->ws);
         opt->solve_cmp(&v_clp2.vector, &v_cword.vector, opt->basis, opt->ws_cmp);
@@ -385,7 +393,7 @@ static int compare(FILE* outfile, OPT* opt)
         num_checked++;
     }
 
-    ret = EXIT_SUCCESS;
+    ret = LT_SUCCESS;
 
 error_c:
     fprintf(outfile, "Compared %zu solutions and found %zu differences.\n"
@@ -403,8 +411,10 @@ error:
 int main(int argc, char* argv[])
 {
     OPT opt = OPT_default;
-    int ret = EXIT_FAILURE;
+    int ret = LT_FAILURE;
     argv[0] = PROGRAM_NAME = "lat-solve";
+
+    gsl_set_error_handler_off();
     parse_cmdline(argc, argv, &opt);
 
     FILE* outfile = stdout;
@@ -429,7 +439,7 @@ int main(int argc, char* argv[])
             break;
         }
     }
-    ret = EXIT_SUCCESS;
+    ret = LT_SUCCESS;
 
 error_a:
     if(opt.output)

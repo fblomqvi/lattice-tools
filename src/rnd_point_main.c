@@ -520,6 +520,8 @@ int main(int argc, char* argv[])
     RP_OPT opt;
     int ret = EXIT_FAILURE;
     argv[0] = PROGRAM_NAME = "rnd-point";
+
+    gsl_set_error_handler_off();
     parse_cmdline(argc, argv, &opt);
 
     FILE* outfile = stdout;
