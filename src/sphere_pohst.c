@@ -66,12 +66,12 @@ int SD_WS_alloc_and_init(SD_WS** ws_ptr, const gsl_matrix* B)
     llibcheck_se(n >= m, error, lt_errno, LT_ELINDEP);
 
     SD_WS* ws = malloc(sizeof(SD_WS));
-    llibcheck_se(ws, error, lt_errno, LT_ENOMEM);
+    llibcheck_se(ws, error, lt_errno, LT_ESYSTEM);
 
     size_t Q_size = n * n;
     size_t R_size = n * m;
     ws->data = malloc((Q_size + R_size + 6 * m) * sizeof(double));
-    llibcheck_se(ws->data, error_a, lt_errno, LT_ENOMEM);
+    llibcheck_se(ws->data, error_a, lt_errno, LT_ESYSTEM);
 
     ws->ub = ws->data + Q_size + R_size;
     ws->d2 = ws->ub + m;

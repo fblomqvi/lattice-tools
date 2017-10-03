@@ -44,12 +44,12 @@ int BABAI_WS_alloc_and_init(BABAI_WS** ws_ptr, const gsl_matrix* B)
     llibcheck_se(n >= m, error, lt_errno, LT_ELINDEP);
 
     BABAI_WS* ws = malloc(sizeof(BABAI_WS));
-    llibcheck_se(ws, error, lt_errno, LT_ENOMEM);
+    llibcheck_se(ws, error, lt_errno, LT_ESYSTEM);
 
     size_t Q_size = n * n;
     size_t R_size = n * m;
     ws->data = malloc((Q_size + R_size + 2 * m) * sizeof(double));
-    llibcheck_se(ws->data, error_a, lt_errno, LT_ENOMEM);
+    llibcheck_se(ws->data, error_a, lt_errno, LT_ESYSTEM);
 
     ws->s = ws->data + Q_size + R_size;
     ws->y = ws->s + m;

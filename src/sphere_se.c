@@ -51,12 +51,12 @@ int SDSE_WS_alloc_and_init(SDSE_WS** ws_ptr, const gsl_matrix* B)
     llibcheck_se(n >= m, error, lt_errno, LT_ELINDEP);
 
     SDSE_WS* ws = malloc(sizeof(SDSE_WS));
-    llibcheck_se(ws, error, lt_errno, LT_ENOMEM);
+    llibcheck_se(ws, error, lt_errno, LT_ESYSTEM);
 
     size_t Q_size = n * n;
     size_t R_size = n * m;
     ws->data = malloc((Q_size + R_size + 6 * m) * sizeof(double));
-    llibcheck_se(ws->data, error_a, lt_errno, LT_ENOMEM);
+    llibcheck_se(ws->data, error_a, lt_errno, LT_ESYSTEM);
 
     ws->dist = ws->data + Q_size + R_size;
     ws->e = ws->dist + m;
