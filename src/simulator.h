@@ -37,11 +37,10 @@ typedef struct s_simulator_options
 } SIM_OPTIONS;
 
 /* Takes ownership of the basis matrix. */
-SIMULATOR* SIMULATOR_from_basis(gsl_matrix* basis, Algorithm alg);
+int SIMULATOR_from_basis(SIMULATOR** sim_ptr, gsl_matrix* basis, Algorithm alg);
 
 void SIMULATOR_free(SIMULATOR* sim);
 
 int SIMULATOR_run(SIMULATOR* sim, SIM_OPTIONS* opt);
 
 #endif /* FB_LDPC_TOOLS_SIMULATOR_H */
-

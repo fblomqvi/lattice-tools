@@ -180,8 +180,9 @@ static int parse_and_simulate(FILE* file, OPT* opt)
     gsl_matrix* basis = parse_fpLLL_matrix(file, opt->transpose);
     check(basis, "error when processing input file '%s'", opt->sim.infile);
 
-    SIMULATOR* sim = SIMULATOR_from_basis(basis, opt->alg);
-    lcheck_mem(sim, error_a);
+    SIMULATOR* sim; 
+    int lt_errno = SIMULATOR_from_basis(&sim, basis, opt->alg);
+    lt_lcheck(lt_errno, error_a, "SIMULATOR_from_basis failed");
 
     int rc = SIMULATOR_run(sim, &opt->sim);
     SIMULATOR_free(sim);

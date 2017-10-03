@@ -103,13 +103,14 @@ static int sim_print_snr_result(FILE* file, double snr, size_t frame_errs,
 static int sim_print_time_and_speed(FILE* file, size_t frames, 
                                     size_t bits, double time_elapsed);
 
-SIMULATOR* SIMULATOR_from_basis(gsl_matrix* basis, Algorithm alg)
+int SIMULATOR_from_basis(SIMULATOR** sim_ptr, gsl_matrix* basis, Algorithm alg)
 {
+    int lt_errno = LT_SUCCESS;
     SIMULATOR* sim = malloc(sizeof(SIMULATOR));
-    libcheck_mem(sim);
+    libcheck_se_mem(sim, lt_errno, LT_ESYSTEM);
 
-    int rc = algorithm_get_fp_init_ws(&sim->decode, &sim->alg_ws, alg, basis);
-    llibcheck(rc == 0, error_a, "algorithm_get_fp_init_ws failed");
+    lt_errno = algorithm_get_fp_init_ws(&sim->decode, &sim->alg_ws, alg, basis);
+    lt_llibcheck(lt_errno, error_a, "algorithm_get_fp_init_ws failed");
 
     sim->basis = basis;
     sim->alg = alg;
@@ -119,12 +120,14 @@ SIMULATOR* SIMULATOR_from_basis(gsl_matrix* basis, Algorithm alg)
 
     // Temporary
     sim->dt_size = sizeof(double);
-    return sim;
+    *sim_ptr = sim;
+    return lt_errno;
 
 error_a:
     free(sim);
 error:
-    return NULL;
+    *sim_ptr = NULL;
+    return lt_errno;
 }
 
 void SIMULATOR_free(SIMULATOR* sim)
@@ -139,7 +142,7 @@ void SIMULATOR_free(SIMULATOR* sim)
 
 int SIMULATOR_run(SIMULATOR* sim, SIM_OPTIONS* opt)
 {
-    int ret = EXIT_FAILURE;
+    int ret = LT_FAILURE;
     SIM_WS* ws = SIM_WS_alloc(sim->n, sim->dt_size, opt->zero_cwords);
     check_mem(ws);
 
@@ -179,7 +182,7 @@ int SIMULATOR_run(SIMULATOR* sim, SIM_OPTIONS* opt)
     double time_elapsed = difftime(time(NULL), start);
     sim_print_time_and_speed(stdout, sim->total, sim->total * sim->n, time_elapsed);
 
-    ret = EXIT_SUCCESS;
+    ret = LT_SUCCESS;
     
 error_d:
     fclose(sim->outfile);
