@@ -33,6 +33,7 @@
 /* A convenience function that adds ': <strerror>\n' to the output specified by
  * the format string and the additional arguments. */
 void fprintf_we(FILE* file, const char* format, ...);
+void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
 
 #ifdef NDEBUG
 #define debug(msg, ...)
@@ -90,6 +91,10 @@ void fprintf_we(FILE* file, const char* format, ...);
 
 #define log_plain(msg, ...) \
     fprintf(stderr, msg "\n", ##__VA_ARGS__)
+
+#define log_err_lt(lt_errno, msg, ...) \
+    fprintf_we_lt(stderr, lt_errno, "[ERROR] (%s:%d) " msg, \
+            __FILE__, __LINE__, ##__VA_ARGS__)
 #else
 
 /* The log_<name> macros need the PROGRAM_NAME macro to be defined so we set it
@@ -116,6 +121,10 @@ void fprintf_we(FILE* file, const char* format, ...);
 
 #define log_plain(msg, ...) \
     fprintf(stderr, "%s: " msg "\n", PROGRAM_NAME, ##__VA_ARGS__)
+
+#define log_err_lt(lt_errno, msg, ...) \
+    fprintf_we_lt(stderr, lt_errno, "%s: [ERROR] (%s:%d) " msg, \
+            PROGRAM_NAME, __FILE__, __LINE__, ##__VA_ARGS__)
 #endif /* DBG_NO_PROG_NAME */
 
 
@@ -138,6 +147,27 @@ void fprintf_we(FILE* file, const char* format, ...);
         if(!(c)) \
         {\
             print_func(msg, ##__VA_ARGS__);\
+            goto label;\
+        }\
+    } while(0)
+
+/* Checks if 'c' is true or false. If 'c' is false, then the error is logged by
+ * 'print_func', errno is cleared, and the execution jumps to 'label'. */
+#define lcheck_lt_pf(c, print_func, label, lt_errno, msg, ...) \
+    do {\
+        if(!(c)) \
+        {\
+            print_func(lt_errno, msg, ##__VA_ARGS__);\
+            goto label;\
+        }\
+    } while(0)
+
+#define llibcheck_se_pf(c, print_func, label, lt_errno, error_code, msg, ...) \
+    do {\
+        if(!(c)) \
+        {\
+            lt_errno = error_code;
+            print_func(error_code, msg, ##__VA_ARGS__);\
             goto label;\
         }\
     } while(0)
@@ -166,6 +196,12 @@ void fprintf_we(FILE* file, const char* format, ...);
 #define libcheck_mem(c) llibcheck_mem(c, error)
 
 /* More conveniece macros */
+#define lcheck_lt(c, label, lt_errno, msg, ...) \
+    lcheck_lt_pf(c, log_err_lt, label, lt_errno, msg, ##__VA_ARGS__)
+#define check_lt(c, lt_errno, msg, ...) \
+    lcheck_lt_pf(c, log_err_lt, error, lt_errno, msg, ##__VA_ARGS__)
+
+
 //#define check_fatal(c) check(c, "Fatal error")
 
 #define lcheck_parse(c, label, line_num, line, msg, ...) \

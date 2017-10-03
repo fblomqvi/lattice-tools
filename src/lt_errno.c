@@ -1,5 +1,5 @@
-/* Convenience functions for printing error messages.
-   Copyright (C) 2016 Ferdinand Blomqvist
+/* lt_errno.c
+   Copyright (C) 2017 Ferdinand Blomqvist
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
@@ -15,24 +15,20 @@
    
    Written by Ferdinand Blomqvist. */
 
-#include "dbg.h"
-#include <stdarg.h>
 #include "lt_errno.h"
+#include <gsl/gsl_errno.h>
 
-void fprintf_we(FILE* file, const char* format, ...)
+const char* lt_strerror(const int lt_errno)
 {
-    va_list args;
-    va_start(args, format);
-    vfprintf(file, format, args);
-    va_end(args);
-    fprintf(file, "; %s\n", errno ? strerror(errno) : "None");
-}
-
-void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    vfprintf(file, format, args);
-    va_end(args);
-    fprintf(file, "; %s\n", lt_errno ? lt_strerror(lt_errno) : "None");
+    switch(lt_errno)
+    {
+        case LT_SUCCESS:
+            return "success";
+        case LT_FAILURE:
+            return "failure";
+        case LT_ELINDEP:
+            return "The basis vectors are linearly dependent";
+        default:
+            return gsl_strerror(lt_errno);
+    }
 }
