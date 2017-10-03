@@ -16,6 +16,8 @@
    Written by Ferdinand Blomqvist. */
 
 #include "lt_errno.h"
+#include <string.h>
+#include <errno.h>
 #include <gsl/gsl_errno.h>
 
 const char* lt_strerror(const int lt_errno)
@@ -30,6 +32,8 @@ const char* lt_strerror(const int lt_errno)
             return "the basis vectors are linearly dependent";
         case LT_ENOMEM:
             return "malloc failed";
+        case LT_ESYSTEM:
+            return strerror(errno);
         default:
             return gsl_strerror(lt_errno);
     }
