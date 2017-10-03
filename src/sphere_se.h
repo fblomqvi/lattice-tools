@@ -22,7 +22,8 @@
 
 typedef struct s_sdse_ws SDSE_WS;
 
-SDSE_WS *SDSE_WS_alloc_and_init(const gsl_matrix* B);
+//SDSE_WS *SDSE_WS_alloc_and_init(const gsl_matrix* B, int* lt_error);
+int SDSE_WS_alloc_and_init(SDSE_WS** ws_ptr, const gsl_matrix* B);
 void SDSE_WS_free(SDSE_WS *ws);
 
 void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SDSE_WS *ws);

@@ -22,7 +22,7 @@
 
 typedef struct s_sd_ws SD_WS;
 
-SD_WS *SD_WS_alloc_and_init(const gsl_matrix* B);
+int SD_WS_alloc_and_init(SD_WS** ws_ptr, const gsl_matrix* B);
 void SD_WS_free(SD_WS *ws);
 
 void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_WS *ws);

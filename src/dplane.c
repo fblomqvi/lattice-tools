@@ -16,6 +16,8 @@
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
+#include "utility.h"
+#include "lt_errno.h"
 #include <math.h>
 #include <assert.h>
 #include <gsl/gsl_linalg.h>
@@ -38,20 +40,21 @@ struct s_dp_ws
     size_t m;
 };
 
-DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
+int DP_WS_alloc_and_init(DP_WS** ws_ptr, const gsl_matrix *B)
 {
-    DP_WS* ws = malloc(sizeof(DP_WS));
-    libcheck_mem(ws);
-
+    int lt_errno = LT_SUCCESS;
     size_t n = B->size1;
     size_t m = B->size2;
-    assert(n >= m);
+    llibcheck_se(n >= m, error, lt_errno, LT_ELINDEP);
+
+    DP_WS* ws = malloc(sizeof(DP_WS));
+    llibcheck_se(ws, error, lt_errno, LT_ENOMEM);
 
     ws->m = m;
     size_t Q_size = n * n;
     size_t R_size = n * m;
     ws->data = malloc((Q_size + R_size + 3 * m) * sizeof(double));
-    llibcheck_mem(ws->data, error_a);
+    llibcheck_se(ws->data, error_a, lt_errno, LT_ENOMEM);
 
     ws->s = ws->data + Q_size + R_size;
     ws->x = ws->s + m;
@@ -66,49 +69,24 @@ DP_WS* DP_WS_alloc_and_init(const gsl_matrix *B)
     gsl_matrix* Q = &m_Q.matrix;
     gsl_matrix* R = &m_R.matrix;
 
+    lt_errno = utility_compute_QR_decomposition(Q, R, B);
+    llibcheck(lt_errno == 0, error_b, "utility_compute_QR_decomposition failed");
+    llibcheck_se(utility_Rmm_is_not_singular(ws->R, 10E-10), error_b, lt_errno, LT_ELINDEP);
+
     ws->Q1 = gsl_matrix_submatrix(Q, 0, 0, n, m);
     ws->m_R = gsl_matrix_submatrix(R, 0, 0, m, m);
     ws->R = &ws->m_R.matrix;
 
-    /* Tau is a vector used only for the gsl QR decomposition function.
-     * The size of tau must be min of n,m; this is always m for now.*/
-    size_t tausize = (n < m) ? n : m;
-    /* Compute the QR-decomposition of lattice basis B and store it to matrices
-     * Q and R, don't alter B. */
-    gsl_matrix* B_copy = gsl_matrix_alloc(n, m);
-    llibcheck_mem(B_copy, error_d);
+    *ws_ptr = ws;
+    return lt_errno;
 
-    gsl_vector* tau = gsl_vector_alloc(tausize);
-    llibcheck_mem(tau, error_e);
-
-    gsl_matrix_memcpy(B_copy, B);
-    gsl_linalg_QR_decomp(B_copy, tau);
-    gsl_linalg_QR_unpack(B_copy, tau, Q, R);
-    gsl_vector_free(tau);
-    gsl_matrix_free(B_copy);
-
-    // Make the diagonal of R positive, as required by the algorithm.
-    for(size_t i = 0; i < m; i++)
-    {
-        if(gsl_matrix_get(R, i, i) < 0)
-        {
-            gsl_vector_view Rrow = gsl_matrix_row(R, i);
-            gsl_vector_view Qcol = gsl_matrix_column(Q,i);
-            gsl_vector_scale(&Rrow.vector, -1);
-            gsl_vector_scale(&Qcol.vector, -1);
-        }
-    }
-
-    return ws;
-
-error_e:
-    gsl_matrix_free(B_copy);
-error_d:
+error_b:
     free(ws->data);
 error_a:
     free(ws);
 error:
-    return NULL;
+    *ws_ptr = NULL;
+    return lt_errno;
 }
 
 void DP_WS_free(DP_WS *ws) 

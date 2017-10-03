@@ -22,7 +22,7 @@
 
 typedef struct s_babai_ws BABAI_WS;
 
-BABAI_WS* BABAI_WS_alloc_and_init(const gsl_matrix* B);
+int BABAI_WS_alloc_and_init(BABAI_WS** ws_ptr, const gsl_matrix* B);
 void BABAI_WS_free(BABAI_WS* ws);
 
 void babai(gsl_vector* clp, const gsl_vector* orig_t, const gsl_matrix* B, BABAI_WS* ws);

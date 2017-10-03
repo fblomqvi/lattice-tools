@@ -16,6 +16,7 @@
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
+#include "lt_errno.h"
 #include "algorithm.h"
 #include "babai.h"
 #include "dplane.h"
@@ -37,41 +38,38 @@ int algorithm_parse_name(const char* alg)
 int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws, 
                             Algorithm alg, const gsl_matrix* basis)
 {
+    int lt_errno;
     switch(alg)
     {
         case ALG_BABAI:
             *f = babai_g;
-            *ws = BABAI_WS_alloc_and_init(basis);
+            lt_errno = BABAI_WS_alloc_and_init((BABAI_WS**) ws, basis);
             break;
         case ALG_DPLANE:
             *f = dplane_g;
-            *ws = DP_WS_alloc_and_init(basis);
+            lt_errno = DP_WS_alloc_and_init((DP_WS**) ws, basis);
             break;
         case ALG_DPLANE_VANILLA:
             *f = dplane_vanilla_g;
-            *ws = DP_WS_alloc_and_init(basis);
+            lt_errno = DP_WS_alloc_and_init((DP_WS**) ws, basis);
             break;
         case ALG_SPHERE_POHST:
             *f = spheredecode_g;
-            *ws = SD_WS_alloc_and_init(basis);
+            lt_errno = SD_WS_alloc_and_init((SD_WS**) ws, basis);
             break;
         case ALG_SPHERE_DP:
             *f = sd_dp_g;
-            *ws = SD_WS_alloc_and_init(basis);
+            lt_errno = SD_WS_alloc_and_init((SD_WS**) ws, basis);
             break;
         case ALG_SPHERE_SE:
             *f = sphere_se_g;
-            *ws = SDSE_WS_alloc_and_init(basis);
+            lt_errno = SDSE_WS_alloc_and_init((SDSE_WS**) ws, basis);
             break;
         default:
-            return -1;
+            return LT_FAILURE;
     }
 
-    libcheck(*ws, "*_alloc_and_init failed");
-    return 0;
-
-error:
-    return -1;
+    return lt_errno;
 }
 
 void algorithm_free_ws(void* ws, Algorithm alg)

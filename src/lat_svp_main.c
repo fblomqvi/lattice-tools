@@ -137,8 +137,9 @@ static int solve_svp(FILE* outfile, OPT* opt)
         fclose(infile);
     lcheck(basis, error_a, "error when processing input file '%s'", opt->basis_file);
 
-    SDSE_WS* ws = SDSE_WS_alloc_and_init(basis);
-    lcheck_mem(ws, error_a);
+    SDSE_WS* ws;
+    int lt_error = SDSE_WS_alloc_and_init(&ws, basis);
+    lcheck_lt(lt_error == 0, error_a, lt_error, "SDSE_WS_alloc_and_init failed");
 
     double* slp = malloc(basis->size1 * sizeof(double));
     lcheck_mem(slp, error_b);

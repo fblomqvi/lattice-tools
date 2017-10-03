@@ -17,6 +17,8 @@
 
 #include "dbg.h"
 #include "sphere_pohst.h"
+#include "utility.h"
+#include "lt_errno.h"
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
@@ -56,19 +58,20 @@ static void step_5b(SD_WS* ws, size_t* k);
  *      the documentation and it is the OPPOSITE of how gsl uses them
  *      (in error messages, for example). */
 
-SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
+int SD_WS_alloc_and_init(SD_WS** ws_ptr, const gsl_matrix* B)
 {
-    SD_WS* ws = malloc(sizeof(SD_WS));
-    libcheck_mem(ws);
-
+    int lt_errno = LT_SUCCESS;
     size_t n = B->size1;
     size_t m = B->size2;
-    assert(n >= m);
+    llibcheck_se(n >= m, error, lt_errno, LT_ELINDEP);
+
+    SD_WS* ws = malloc(sizeof(SD_WS));
+    llibcheck_se(ws, error, lt_errno, LT_ENOMEM);
 
     size_t Q_size = n * n;
     size_t R_size = n * m;
     ws->data = malloc((Q_size + R_size + 6 * m) * sizeof(double));
-    llibcheck_mem(ws->data, error_a);
+    llibcheck_se(ws->data, error_a, lt_errno, LT_ENOMEM);
 
     ws->ub = ws->data + Q_size + R_size;
     ws->d2 = ws->ub + m;
@@ -86,47 +89,23 @@ SD_WS* SD_WS_alloc_and_init(const gsl_matrix* B)
     ws->Q = &ws->m_Q.matrix;
     ws->R = &ws->m_R.matrix;
 
-    /* Tau is a vector used only for the gsl QR decomposition function.
-     * The size of tau must be min of n,m; this is always m for now.*/
-    size_t tausize = (n < m) ? n : m;
-    /* Compute the QR-decomposition of lattice basis B and store it to matrices
-     * Q and R, don't alter B. */
-    gsl_matrix* B_copy = gsl_matrix_alloc(n, m);
-    llibcheck_mem(B_copy, error_d);
-
-    gsl_vector* tau = gsl_vector_alloc(tausize);
-    llibcheck_mem(tau, error_e);
-
-    gsl_matrix_memcpy(B_copy, B);
-    gsl_linalg_QR_decomp(B_copy, tau);
-    gsl_linalg_QR_unpack(B_copy, tau, ws->Q, ws->R);
-    gsl_vector_free(tau);
-    gsl_matrix_free(B_copy);
-
-    // Make the diagonal of R positive, as required by the algorithm.
-    for(size_t i = 0; i < m; i++)
-    {
-        if(gsl_matrix_get(ws->R, i, i) < 0)
-        {
-            gsl_vector_view Rrow = gsl_matrix_row(ws->R, i);
-            gsl_vector_view Qcol = gsl_matrix_column(ws->Q,i);
-            gsl_vector_scale(&Rrow.vector, -1);
-            gsl_vector_scale(&Qcol.vector, -1);
-        }
-    }
+    lt_errno = utility_compute_QR_decomposition(ws->Q, ws->R, B);
+    llibcheck(lt_errno == 0, error_b, "utility_compute_QR_decomposition failed");
+    llibcheck_se(utility_Rmm_is_not_singular(ws->R, 10E-10), error_b, lt_errno, LT_ELINDEP);
 
     ws->Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
     ws->Rsub = gsl_matrix_submatrix(ws->R, 0, 0, m, m);
-    return ws;
+    
+    *ws_ptr = ws;
+    return lt_errno;
 
-error_e:
-    gsl_matrix_free(B_copy);
-error_d:
+error_b:
     free(ws->data);
 error_a:
     free(ws);
 error:
-    return NULL;
+    *ws_ptr = NULL;
+    return lt_errno;
 }
 
 void SD_WS_free(SD_WS *ws)
