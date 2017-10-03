@@ -3,6 +3,7 @@ CFLAGS=-std=gnu11 -Wall -Wextra -g -O3 -Isrc -DNDEBUG -DGSL_RANGE_CHECK_OFF -DHA
 #CFLAGS=-std=gnu11 -Wall -Wextra -g -O3 -ffast-math -mtune=native -Isrc -DNDEBUG $(OPTFLAGS)
 #CFLAGS= -std=gnu99 -Wall -Wextra -pedantic -g -O2 -Isrc -DNDEBUG -fomit-frame-pointer -mtune=native
 LIBS= -lm -lgsl -lgslcblas -lgmp $(OPTLIBS)
+#LIBS= -lgsl -lopenblas -lpthread -lgmp -lm $(OPTLIBS)
 PREFIX?=/usr/local
 SRCDIR=src
 OBJDIR=obj
