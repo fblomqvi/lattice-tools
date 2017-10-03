@@ -19,6 +19,7 @@
 #include "version.h"
 #include "parse.h"
 #include "sphere_se.h"
+#include "print_util.h"
 #include <getopt.h>
 #include <errno.h>
 #include <string.h>
@@ -34,11 +35,12 @@ typedef struct s_options
     char* basis_file;
     char* output;
     int rows_as_basis;
+    enum PrintingFmt format;
 } OPT;
 
 static const OPT OPT_default = {
     .basis_file = NULL, .output = NULL,
-    .rows_as_basis = 1
+    .rows_as_basis = 1, .format = PRINTING_FMT_DEFAULT
 };
 
 static int print_help(FILE* file)
@@ -52,6 +54,8 @@ static int print_help(FILE* file)
 "Solves the shortest vector problem for the lattice read from INPUT. Outputs\n"
 "to stdout if no output file is given.\n\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
+"  -f, --output-format=FMT      The output format that will be used. Give 'list' as\n"
+"                                 argument to get a list of all formats.\n"
 "  -t, --transpose              Transpose the basis read from INPUT.\n"
 "      --help                   Display this help and exit.\n"
 "      --version                Output version information and exit.";
@@ -62,8 +66,9 @@ static int print_help(FILE* file)
 
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 {
-    static const char* optstring = "t";
+    static const char* optstring = "f:t";
     static struct option longopt[] = {
+        {"output-format", required_argument, NULL, 'f'},
         {"transpose", no_argument, NULL, 't'},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'V'},
@@ -78,6 +83,17 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     {
         switch(ch)
         {
+            case 'f':
+                if(!strcmp(optarg, "list"))
+                    exit(printing_fmt_print_names(stdout));
+                else
+                {
+                    int format_id = printing_fmt_parse_name(optarg);
+                    check(format_id >= 0, "invalid argument to option '%c': '%s'",
+                            ch, optarg);
+                    opt->format = format_id;
+                }
+                break;
             case 't':
                 opt->rows_as_basis = 0;
                 break;
@@ -105,18 +121,6 @@ error:
     exit(EXIT_FAILURE);
 }
 
-static int print_lattice_point(FILE* file, const double* cword, size_t cword_len)
-{
-    libcheck(fprintf(file, "[") > 0, "printing failed");
-    for(size_t i = 0; i < cword_len-1; i++)
-        libcheck(fprintf(file, " %f", cword[i]) > 0, "printing failed");
-    libcheck(fprintf(file, " %f ]\n", cword[cword_len-1]) > 0, "printing failed");
-    return 0;
-
-error:
-    return -1;
-}
-
 static int solve_svp(FILE* outfile, OPT* opt)
 {
     int ret = EXIT_FAILURE;
@@ -142,8 +146,9 @@ static int solve_svp(FILE* outfile, OPT* opt)
     gsl_vector_view v_slp = gsl_vector_view_array(slp, basis->size1);
     sphere_se_svp(&v_slp.vector, basis, ws);
 
-    int rc = print_lattice_point(outfile, slp, basis->size1);
-    lcheck(rc == 0, error_c, "print_lattice_point failed");
+    debug("Too far!");
+    int rc = print_dvector_std(outfile, slp, basis->size1, printing_fmt_get(opt->format));
+    lcheck(rc == 0, error_c, "print_dvector_std failed");
     ret = EXIT_SUCCESS;
 
 error_c:

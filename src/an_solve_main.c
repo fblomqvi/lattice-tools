@@ -20,6 +20,7 @@
 #include "rng.h"
 #include "an_solver.h"
 #include "rnd_point.h"
+#include "print_util.h"
 #include <getopt.h>
 #include <errno.h>
 #include <string.h>
@@ -35,24 +36,21 @@ typedef struct s_options
     char* output;
     size_t cword_len;
     size_t cword_num;
+    enum PrintingFmt format;
     int no_config;
     int binary_out;
     void (*an_solve)(long*, double*, AN_WS*);
-    int (*plp)(FILE*, const long*, size_t);
+    int (*plp)(FILE*, const long*, size_t, const PRINTING_FMT*);
 } OPT;
-
-static int print_lattice_point(FILE* file, const long* lp, size_t cword_len);
-static int print_lattice_point_float(FILE* file, const long* lp, size_t cword_len);
-
-static int print_lattice_point_binary(FILE* file, const long* lp, size_t cword_len);
-static int print_lattice_point_binary_float(FILE* file, const long* lp, size_t cword_len);
 
 static const OPT OPT_default = {
     .input = NULL, .output = NULL, 
     .cword_len = 0, .cword_num = 0, 
     .no_config = 0, .binary_out = 1, 
     .an_solve = AN_solve,
-    .plp = print_lattice_point
+    .plp = print_lvector_std,
+    .format = PRINTING_FMT_DEFAULT
+
 };
 
 static int print_help(FILE* file)
@@ -68,6 +66,8 @@ static int print_help(FILE* file)
 "Outputs to stdout if no output file is given.\n\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
 "  -d, --dimension=NUM          Assumes that the input points lie in R^NUM.\n"
+"  -f, --output-format=FMT      The output format that will be used if 'R' is given.\n"
+"                                 Give 'list' as argument to get a list of all formats.\n"
 "  -n, --num-points=NUM         The number of codewords to decode. Zero (0) makes the\n"
 "                                 solver run until it runs out of input.\n"
 "  -A, --A-n                    Assumes that the input points lie on the hyperplane\n"
@@ -85,9 +85,10 @@ static int print_help(FILE* file)
 
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 {
-    static const char* optstring = "d:n:AFRC";
+    static const char* optstring = "d:f:n:AFRC";
     static struct option longopt[] = {
         {"dimension", required_argument, NULL, 'd'},
+        {"output-format", required_argument, NULL, 'f'},
         {"num-points", required_argument, NULL, 'n'},
         {"A-n", no_argument, NULL, 'A'},
         {"readable-output", no_argument, NULL, 'R'},
@@ -111,6 +112,17 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 opt->cword_len = strtoul(optarg, &endptr, 10);
                 check(*endptr == '\0' && !(errno == ERANGE && opt->cword_len == ULONG_MAX),
                     "invalid argument to option '%c': '%s'", ch, optarg);
+                break;
+            case 'f':
+                if(!strcmp(optarg, "list"))
+                    exit(printing_fmt_print_names(stdout));
+                else
+                {
+                    int format_id = printing_fmt_parse_name(optarg);
+                    check(format_id >= 0, "invalid argument to option '%c': '%s'",
+                            ch, optarg);
+                    opt->format = format_id;
+                }
                 break;
             case 'n':
                 opt->cword_num = strtoul(optarg, &endptr, 10);
@@ -149,12 +161,12 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     if(float_out)
     {
         opt->plp = opt->binary_out ? 
-            print_lattice_point_binary_float : print_lattice_point_float;
+            print_lvector_binary_float : print_lvector_as_double_std;
     }
     else
     {
         opt->plp = opt->binary_out ? 
-            print_lattice_point_binary : print_lattice_point;
+            print_lvector_binary : print_lvector_std;
     }
 
     return;
@@ -162,67 +174,6 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 error:
     fprintf(stderr, "Try '%s --help' for more information.\n", PROGRAM_NAME);
     exit(EXIT_FAILURE);
-}
-
-static int print_codeword(FILE* file, const double* cw, size_t cword_len)
-{
-    libcheck(fprintf(file, "(") > 0, "printing failed");
-    for(size_t i = 0; i < cword_len-1; i++)
-        libcheck(fprintf(file, "%f, ", cw[i]) > 0, "printing failed");
-    libcheck(fprintf(file, "%f) ---> ", cw[cword_len-1]) > 0, "printing failed");
-    return 0;
-    
-error:
-    return -1;
-}
-
-static int print_lattice_point(FILE* file, const long* lp, size_t cword_len)
-{
-    libcheck(fprintf(file, "(") > 0, "printing failed");
-    for(size_t i = 0; i < cword_len-1; i++)
-        libcheck(fprintf(file, "%ld, ", lp[i]) > 0, "printing failed");
-    libcheck(fprintf(file, "%ld)\n", lp[cword_len-1]) > 0, "printing failed");
-    return 0;
-    
-error:
-    return -1;
-}
-
-static int print_lattice_point_float(FILE* file, const long* lp, size_t cword_len)
-{
-    libcheck(fprintf(file, "(") > 0, "printing failed");
-    for(size_t i = 0; i < cword_len-1; i++)
-        libcheck(fprintf(file, "%f, ", (double) lp[i]) > 0, "printing failed");
-    libcheck(fprintf(file, "%f)\n", (double) lp[cword_len-1]) > 0, "printing failed");
-    return 0;
-    
-error:
-    return -1;
-}
-
-static int print_lattice_point_binary(FILE* file, const long* lp, size_t cword_len)
-{ return !(fwrite(lp, sizeof(long), cword_len, file) == cword_len); }
-
-static int print_lattice_point_binary_float(FILE* file, const long* lp, size_t cword_len)
-{ 
-    size_t buf_size = cword_len < 1024 ? cword_len : 1024;
-    size_t left = cword_len;
-    double buffer[buf_size];
-
-    while(left)
-    {
-        size_t write_size = left < buf_size ? left : buf_size;
-        for(size_t i = 0; i < write_size; i++)
-            buffer[i] = (double) lp[i];
-
-        libcheck(fwrite(buffer, sizeof(double), write_size, file) 
-                == write_size, "fwrite failed");
-        left -= write_size;
-    }
-    return 0;
-
-error:
-    return -1;
 }
 
 static int read_cword_binary(void* cword, size_t cword_len, size_t dt_size)
@@ -294,25 +245,26 @@ static int solve(FILE* outfile, const OPT* opt)
             llibcheck(rc == 0, error_d, "read_cword_binary failed");
             
             opt->an_solve(clp, cword, ws);
-            rc = opt->plp(outfile, clp, conf->dimension);
-            llibcheck(rc == 0, error_d, "print_lattice_point_* failed");
+            rc = opt->plp(outfile, clp, conf->dimension, NULL);
+            llibcheck(rc == 0, error_d, "print_lvector* failed");
             i++;
         }
     }
     else
     {
+        const PRINTING_FMT* fmt = printing_fmt_get(opt->format);
         size_t i = 0;
         while(!conf->num_cwords || i < conf->num_cwords)
         {
             int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
             llibcheck(rc == 0, error_d, "read_cword_binary failed");
 
-            rc = print_codeword(outfile, cword, conf->dimension);
+            rc = print_dvector_cword(outfile, cword, conf->dimension, fmt);
             llibcheck(rc == 0, error_d, "print_codeword failed");
             
             opt->an_solve(clp, cword, ws);
-            rc = opt->plp(outfile, clp, conf->dimension);
-            llibcheck(rc == 0, error_d, "print_lattice_point_* failed");
+            rc = opt->plp(outfile, clp, conf->dimension, fmt);
+            llibcheck(rc == 0, error_d, "print_lvector* failed");
             i++;
         }
     }

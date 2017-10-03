@@ -23,6 +23,7 @@
 #include <gmp.h>
 #include "vector_mpz.h"
 #include "vector_mpq.h"
+#include "print_util.h"
 
 typedef struct s_matrix_mpz
 {
@@ -117,9 +118,9 @@ static inline void MAT_MPZ_mul_trans_UT_size(t_MAT_MPZ* R, const t_MAT_MPZ* A,
         MAT_MPZ_mulvec_trans_size(R->columns[i], A, B->columns[i], i+1, A_cols);
 }
 
-void MAT_MPZ_print_no_trans_fpLLL(FILE* file, const t_MAT_MPZ* M);
-void MAT_MPZ_print_trans_fpLLL(FILE* file, const t_MAT_MPZ* M);
-void MAT_MPZ_print_fpLLL(FILE* file, const t_MAT_MPZ* M, int transpose);
+void MAT_MPZ_print_no_trans(FILE* file, const t_MAT_MPZ* M, const PRINTING_FMT* fmt);
+void MAT_MPZ_print_trans(FILE* file, const t_MAT_MPZ* M, const PRINTING_FMT* fmt);
+void MAT_MPZ_print(FILE* file, const t_MAT_MPZ* M, int transpose, const PRINTING_FMT* fmt);
 
 void MAT_MPZ_solve_trans_size(t_VEC_MPZ* x, const t_MAT_MPZ* A, size_t A_rows, 
                             size_t A_cols, t_VEC_MPQ* ws, mpq_t wsq);

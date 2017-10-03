@@ -20,6 +20,7 @@
 #include "configuration.h"
 #include "rng.h"
 #include "lattice_gen.h"
+#include "print_util.h"
 #include <getopt.h>
 #include <errno.h>
 #include <string.h>
@@ -51,6 +52,7 @@ typedef struct s_options
     int cols_as_basis;
     int no_config;
     int use_gmp_rand;
+    enum PrintingFmt format;
 } OPT;
 
 static const OPT OPT_default = {
@@ -59,6 +61,7 @@ static const OPT OPT_default = {
     .no_config = 0, .bits = 0,
     .use_gmp_rand = 0,
     .min = 0, .max = 0,
+    .format = PRINTING_FMT_DEFAULT,
     .par = {
         .dimension = 0, .exponent = 1,
         .offset = 0, .range = 0, .rng = NULL
@@ -137,7 +140,7 @@ static int gen_and_print(FILE* file, OPT* opt)
         M = lattice_gen(opt->type, &opt->par);
     check(M, "lattice_gen failed");
     
-    MAT_MPZ_print_fpLLL(file, M, opt->cols_as_basis);
+    MAT_MPZ_print(file, M, opt->cols_as_basis, printing_fmt_get(opt->format));
     MAT_MPZ_free(M);
     gsl_rng_free(opt->par.rng);
 
@@ -150,9 +153,10 @@ error:
 
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 {
-    static const char* optstring = "b:Cd:e:Gm:M:r:S:tT:";
+    static const char* optstring = "b:Cd:e:f:Gm:M:r:S:tT:";
     static struct option longopt[] = {
         {"bits", required_argument, NULL, 'b'},
+        {"output-format", required_argument, NULL, 'f'},
         {"no-print-config", no_argument, NULL, 'C'},
         {"dimension", required_argument, NULL, 'd'},
         {"exponent", required_argument, NULL, 'e'},
@@ -198,6 +202,17 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 check(*endptr == '\0' &&
                         !(errno == ERANGE && opt->par.exponent == ULONG_MAX),
                     "invalid argument to option '%c': '%s'", ch, optarg);
+                break;
+            case 'f':
+                if(!strcmp(optarg, "list"))
+                    exit(printing_fmt_print_names(stdout));
+                else
+                {
+                    int format_id = printing_fmt_parse_name(optarg);
+                    check(format_id >= 0, "invalid argument to option '%c': '%s'",
+                            ch, optarg);
+                    opt->format = format_id;
+                }
                 break;
             case 'G':
                 opt->use_gmp_rand = 1;
@@ -295,6 +310,8 @@ static int print_help(FILE* file)
 "  -d, --dimension=DIM          The dimension of the lattice to generate. This option\n"
 "                                 is mandatory.\n"
 "  -e, --exponent=VAL           Output the VAL:th power of the basis matrix.\n"
+"  -f, --output-format=FMT      The output format that will be used. Give 'list' as\n"
+"                                 argument to get a list of all formats.\n"
 "  -G, --gmp-for-rand           Use the gmp library for randomness. This is the default\n"
 "                                 if BITS > 31. Therefore the purpose of this option is\n"
 "                                 to force the use of gmp as the source of randomness\n"
@@ -330,6 +347,8 @@ static int print_config(FILE* file, const OPT* opt, gsl_rng* rng)
         {"bits", (union value) opt->bits, type_size, opt->bits},
         {"dimension", (union value) opt->par.dimension, type_size, 1},
         {"exponent", (union value) opt->par.exponent, type_size, opt->par.exponent > 1},
+        {"output-format", (union value) printing_fmt_get_name(opt->format),
+                        type_str, opt->format != PRINTING_FMT_DEFAULT},
         {"gmp-for-rand", (union value) opt->use_gmp_rand, type_bool, opt->bits < 32},
         {"min", (union value) opt->min, type_long, opt->min_set},
         {"max", (union value) opt->max, type_long, opt->max_set},

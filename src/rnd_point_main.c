@@ -20,6 +20,7 @@
 #include "rng.h"
 #include "rnd_point.h"
 #include "parse.h"
+#include "print_util.h"
 #include <getopt.h>
 #include <errno.h>
 #include <string.h>
@@ -50,13 +51,14 @@ typedef struct s_options
     long* hyperplane;
     gsl_matrix* basis;
     const gsl_rng_type* rng_type;
-    int (*print_point)(FILE*, const double*, size_t);
+    int (*print_point)(FILE*, const double*, size_t, const PRINTING_FMT*);
     size_t cword_len;
     size_t cword_num;
     unsigned long seed;
     long min;
     long max;
     Mode mode;
+    enum PrintingFmt format;
     int output_conf;
     int hyp_mode;
     int get_point_switch;
@@ -65,20 +67,6 @@ typedef struct s_options
     int max_set;
     int rows_as_basis;
 } RP_OPT;
-
-static int print_cword_binary(FILE* file, const double* cword, size_t cword_len)
-{ return fwrite(cword, sizeof(double), cword_len, file) == cword_len ? 0 : -1; }
-
-static int print_cword_plain(FILE* file, const double* cword, size_t cword_len)
-{
-    for(size_t i = 0; i < cword_len; i++)
-        libcheck(fprintf(file, "%f ", cword[i]) > 0, "printing failed");
-    libcheck(fputc('\n', file) != EOF, "printing failed");
-    return 0;
-
-error:
-    return -1;
-}
 
 static int print_help(FILE* file)
 {
@@ -100,6 +88,8 @@ static int print_help(FILE* file)
 "                                 to read from stdin.\n"
 "  -B, --basis=FILE             Generates points in the space spanned by the given basis.\n"
 "                                 Give '-' as argument to read from stdin.\n"
+"  -f, --output-format=FMT      The output format that will be used if 'R' is given.\n"
+"                                 Give 'list' as argument to get a list of all formats.\n"
 "  -n, --num-points=NUM         The number of codewords to generate. Zero (0) makes the\n"
 "                                 encoder run until it is killed.\n"
 "  -m, --min=NUM                The smallest possible value for a coordinate (inclusive).\n"
@@ -128,13 +118,14 @@ static int print_help(FILE* file)
 
 static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
 {
-    static const char* optstring = "AB:Cd:H:n:m:M:r:RsS:tZ";
+    static const char* optstring = "AB:Cd:f:H:n:m:M:r:RsS:tZ";
     static struct option longopt[] = {
         {"A-n", no_argument, NULL, 'A'},
         {"no-config", no_argument, NULL, 'C'},
         {"dimension", required_argument, NULL, 'd'},
         {"basis", required_argument, NULL, 'B'},
         {"hyperplane", required_argument, NULL, 'H'},
+        {"output-format", required_argument, NULL, 'f'},
         {"num-points", required_argument, NULL, 'n'},
         {"min", required_argument, NULL, 'm'},
         {"max", required_argument, NULL, 'M'},
@@ -156,9 +147,11 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
         .min = 0, .max = 0, .sloppy = 0,
         .output_conf = 1, .hyp_mode = HYP_MODE_NO,
         .min_set = 0, .max_set = 0,
-        .print_point = print_cword_binary, .hyperplane = NULL,
+        .print_point = print_dvector_binary, .hyperplane = NULL,
         .basis = NULL, .rows_as_basis = 1,
-        .mode = MODE_STANDARD, .rng_type = gsl_rng_default };
+        .mode = MODE_STANDARD, .rng_type = gsl_rng_default,
+        .format = PRINTING_FMT_DEFAULT
+    };
 
     // Parsing the command line
     int ch;
@@ -185,6 +178,17 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
             case 'H':
                 opt->hyp_mode = HYP_MODE_H;
                 opt->input = !strcmp(optarg, "-") ? NULL : optarg;
+                break;
+            case 'f':
+                if(!strcmp(optarg, "list"))
+                    exit(printing_fmt_print_names(stdout));
+                else
+                {
+                    int format_id = printing_fmt_parse_name(optarg);
+                    check(format_id >= 0, "invalid argument to option '%c': '%s'",
+                            ch, optarg);
+                    opt->format = format_id;
+                }
                 break;
             case 'n':
                 opt->cword_num = strtoul(optarg, &endptr, 10);
@@ -218,7 +222,7 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
                 break;
             }
             case 'R':
-                opt->print_point = print_cword_plain;
+                opt->print_point = print_dvector_std;
                 break;
             case 's':
                 opt->sloppy = 1;
@@ -378,10 +382,11 @@ static int generate_standard(FILE* outfile, RP_OPT* opt)
     opt->get_point_switch = custom_range + 2 * opt->hyp_mode + 8 * opt->sloppy;
     llibcheck(set_range(custom_range, rng, opt) == 0, error_b, "set_range failed");
 
+    const PRINTING_FMT* fmt = printing_fmt_get(opt->format);
     size_t i = 0;
     do {
         get_point(cword, rng, opt);
-        lcheck(opt->print_point(outfile, cword, opt->cword_len) == 0,
+        lcheck(opt->print_point(outfile, cword, opt->cword_len, fmt) == 0,
                 error_b, "print_point failed");
     } while(!opt->cword_num || ++i < opt->cword_num);
     ret = 0;
@@ -431,12 +436,13 @@ static int generate_with_basis(FILE* outfile, RP_OPT* opt)
     opt->get_point_switch = custom_range + 8 * opt->sloppy;
     llibcheck(set_range(custom_range, rng, opt) == 0, error_b, "set_range failed");
 
+    const PRINTING_FMT* fmt = printing_fmt_get(opt->format);
     opt->cword_len = m;
     size_t i = 0;
     do {
         get_point(x, rng, opt);
         gsl_blas_dgemv(CblasNoTrans, 1, &m_Q1.matrix, &v_x.vector, 0, &v_r.vector);
-        lcheck(opt->print_point(outfile, r, n) == 0, error_b, "print_point failed");
+        lcheck(opt->print_point(outfile, r, n, fmt) == 0, error_b, "print_point failed");
     } while(!opt->cword_num || ++i < opt->cword_num);
     ret = 0;
 
@@ -537,7 +543,7 @@ int main(int argc, char* argv[])
 
     if(opt.output_conf)
     {
-        rc = (opt.print_point == print_cword_binary ? print_conf_binary(outfile, &opt) 
+        rc = (opt.print_point == print_dvector_binary ? print_conf_binary(outfile, &opt) 
                 : print_conf_plain(outfile, &opt));
         llibcheck(rc == 0, error_a, "print_conf_* failed");
     }

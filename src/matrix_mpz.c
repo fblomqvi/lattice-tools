@@ -253,39 +253,60 @@ void MAT_MPZ_diag_prod(mpz_t det, const t_MAT_MPZ* M)
         mpz_mul(det, det, MAT_MPZ_get(M, i, i));
 }
 
-void MAT_MPZ_print_trans_fpLLL(FILE* file, const t_MAT_MPZ* M);
-void MAT_MPZ_print_fpLLL(FILE* file, const t_MAT_MPZ* M, int transpose)
+void MAT_MPZ_print(FILE* file, const t_MAT_MPZ* M, int transpose, const PRINTING_FMT* fmt)
 { 
     if(transpose)
-        MAT_MPZ_print_trans_fpLLL(file, M);
+        MAT_MPZ_print_trans(file, M, fmt);
     else
-        MAT_MPZ_print_no_trans_fpLLL(file, M);
+        MAT_MPZ_print_no_trans(file, M, fmt);
 }
 
-void MAT_MPZ_print_no_trans_fpLLL(FILE* file, const t_MAT_MPZ* M)
+static void print_row(FILE* file, const t_MAT_MPZ* M, size_t row, const PRINTING_FMT* fmt)
 {
-    fprintf(file, "[");
-    for(size_t i = 0; i < M->rows; i++)
+    fprintf(file, "%s", fmt->vstart_bracket);
+    for(size_t j = 0; j < M->cols-1; j++)
     {
-        fprintf(file, "[");
-        for(size_t j = 0; j < M->cols; j++)
-            gmp_fprintf(file, " %Zd", VEC_MPZ_get(M->columns[j], i));
-        fprintf(file, " ]\n");
+        gmp_fprintf(file, "%Zd", VEC_MPZ_get(M->columns[j], row));
+        fprintf(file, "%s", fmt->element_separator);
     }
-    fprintf(file, "]\n");
+    gmp_fprintf(file, "%Zd", VEC_MPZ_get(M->columns[M->cols-1], row));
+    fprintf(file, "%s", fmt->vend_bracket);
 }
 
-void MAT_MPZ_print_trans_fpLLL(FILE* file, const t_MAT_MPZ* M)
+void MAT_MPZ_print_no_trans(FILE* file, const t_MAT_MPZ* M, const PRINTING_FMT* fmt)
 {
-    fprintf(file, "[");
-    for(size_t i = 0; i < M->cols; i++)
+    fprintf(file, "%s", fmt->mstart_bracket);
+    for(size_t i = 0; i < M->rows-1; i++)
     {
-        fprintf(file, "[");
-        for(size_t j = 0; j < M->rows; j++)
-            gmp_fprintf(file, " %Zd", VEC_MPZ_get(M->columns[i], j));
-        fprintf(file, " ]\n");
+        print_row(file, M, i, fmt);
+        fprintf(file, "%s", fmt->vector_separator);
     }
-    fprintf(file, "]\n");
+    print_row(file, M, M->rows-1, fmt);
+    fprintf(file, "%s\n", fmt->mend_bracket);
+}
+
+static void print_column(FILE* file, const t_MAT_MPZ* M, size_t col, const PRINTING_FMT* fmt)
+{
+    fprintf(file, "%s", fmt->vstart_bracket);
+    for(size_t j = 0; j < M->rows-1; j++)
+    {
+        gmp_fprintf(file, "%Zd", VEC_MPZ_get(M->columns[col], j));
+        fprintf(file, "%s", fmt->element_separator);
+    }
+    gmp_fprintf(file, "%Zd", VEC_MPZ_get(M->columns[col], M->rows-1));
+    fprintf(file, "%s", fmt->vend_bracket);
+}
+
+void MAT_MPZ_print_trans(FILE* file, const t_MAT_MPZ* M, const PRINTING_FMT* fmt)
+{
+    fprintf(file, "%s", fmt->mstart_bracket);
+    for(size_t i = 0; i < M->cols-1; i++)
+    {
+        print_column(file, M, i, fmt);
+        fprintf(file, "%s", fmt->vector_separator);
+    }
+    print_column(file, M, M->cols-1, fmt);
+    fprintf(file, "%s\n", fmt->mend_bracket);
 }
 
 void MAT_MPZ_swap_rows(t_MAT_MPZ* M, size_t i, size_t j)

@@ -21,6 +21,7 @@
 #include "rnd_point.h"
 #include "algorithm.h"
 #include "parse.h"
+#include "print_util.h"
 #include <getopt.h>
 #include <errno.h>
 #include <string.h>
@@ -51,6 +52,7 @@ typedef struct s_options
     int binary_out;
     int rows_as_basis;
     int verbose;
+    enum PrintingFmt format;
     gsl_matrix* basis;
     SOLVE_func solve;
     SOLVE_func solve_cmp;
@@ -64,7 +66,9 @@ static const OPT OPT_default = {
     .no_config = 0, .binary_out = 1,
     .verbose = 0, .alg = ALG_SPHERE_SE,
     .mode = MODE_STANDARD, .basis = NULL,
-    .ws = NULL, .ws_cmp = NULL };
+    .ws = NULL, .ws_cmp = NULL,
+    .format = PRINTING_FMT_DEFAULT
+};
 
 static int print_help(FILE* file)
 {
@@ -82,6 +86,8 @@ static int print_help(FILE* file)
 "                                 available algorithms give 'list' as argument.\n"
 "                                 The default algorithm is '" ALG_NAME_SPHERE "'.\n"
 "  -c, --compare=ALG2           Compare ALG2 to ALG1.\n"
+"  -f, --output-format=FMT      The output format that will be used if 'R' is given.\n"
+"                                 Give 'list' as argument to get a list of all formats.\n"
 "  -n, --num-points=NUM         The number of codewords to decode. Zero (0) makes the\n"
 "                                 solver run until it runs out of input. NOTE: this\n"
 "                                 option is not yet implemented, it always behaves as\n"
@@ -99,11 +105,12 @@ static int print_help(FILE* file)
 
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 {
-    static const char* optstring = "a:c:n:tvRC";
+    static const char* optstring = "a:c:f:n:tvRC";
     static struct option longopt[] = {
         {"algorithm", required_argument, NULL, 'a'},
         {"compare", required_argument, NULL, 'c'},
         {"num-points", required_argument, NULL, 'n'},
+        {"output-format", required_argument, NULL, 'f'},
         {"readable-output", no_argument, NULL, 'R'},
         {"transpose", no_argument, NULL, 't'},
         {"verbose", no_argument, NULL, 'v'},
@@ -144,6 +151,17 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
             case 'C':
                 opt->no_config = 1;
                 break;
+            case 'f':
+                if(!strcmp(optarg, "list"))
+                    exit(printing_fmt_print_names(stdout));
+                else
+                {
+                    int format_id = printing_fmt_parse_name(optarg);
+                    check(format_id >= 0, "invalid argument to option '%c': '%s'",
+                            ch, optarg);
+                    opt->format = format_id;
+                }
+                break;
             case 'R':
                 opt->binary_out = 0;
                 break;
@@ -173,30 +191,6 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 error:
     fprintf(stderr, "Try '%s --help' for more information.\n", PROGRAM_NAME);
     exit(EXIT_FAILURE);
-}
-
-static int print_codeword(FILE* file, const double* cword, size_t cword_len)
-{
-    libcheck(fprintf(file, "(") > 0, "printing failed");
-    for(size_t i = 0; i < cword_len-1; i++)
-        libcheck(fprintf(file, "%f, ", cword[i]) > 0, "printing failed");
-    libcheck(fprintf(file, "%f) ---> ", cword[cword_len-1]) > 0, "printing failed");
-    return 0;
-    
-error:
-    return -1;
-}
-
-static int print_lattice_point(FILE* file, const double* cword, size_t cword_len)
-{
-    libcheck(fprintf(file, "(") > 0, "printing failed");
-    for(size_t i = 0; i < cword_len-1; i++)
-        libcheck(fprintf(file, "%f, ", cword[i]) > 0, "printing failed");
-    libcheck(fprintf(file, "%f)\n", cword[cword_len-1]) > 0, "printing failed");
-    return 0;
-    
-error:
-    return -1;
 }
 
 static int read_cword_binary(void* cword, size_t cword_len, size_t dt_size)
@@ -298,18 +292,19 @@ static int solve(FILE* outfile, OPT* opt)
     }
     else
     {
+        const PRINTING_FMT* fmt = printing_fmt_get(opt->format);
         size_t i = 0;
         while(!conf->num_cwords || i < conf->num_cwords)
         {
             int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
             llibcheck(rc == 0, error_c, "read_cword_binary failed");
             
-            rc = print_codeword(outfile, cword, conf->dimension);
-            llibcheck(rc == 0, error_c, "print_codeword failed");
+            rc = print_dvector_cword(outfile, cword, conf->dimension, fmt);
+            llibcheck(rc == 0, error_c, "print_dvector_cword failed");
 
             opt->solve(&v_clp.vector, &v_cword.vector, opt->basis, opt->ws);
-            rc = print_lattice_point(outfile, clp, conf->dimension);
-            llibcheck(rc == 0, error_c, "print_lattice_point failed");
+            rc = print_dvector_std(outfile, clp, conf->dimension, fmt);
+            llibcheck(rc == 0, error_c, "print_dvector_std failed");
             i++;
         }
     }
@@ -336,14 +331,14 @@ static int solutions_not_equal(double* a, double* b, size_t len)
 }
 
 static int print_details(FILE* file, const double* cword, const double* clp1,
-                        const double* clp2, size_t len)
+                        const double* clp2, size_t len, const PRINTING_FMT* fmt)
 {
-    libcheck(fprintf(file, "cword: ") > 0, "printing error");
-    libcheck(print_lattice_point(file, cword, len) == 0, "print_lattice_point failed");
-    libcheck(fprintf(file, "clp1: ") > 0, "printing error");
-    libcheck(print_lattice_point(file, clp1, len) == 0, "print_lattice_point failed");
-    libcheck(fprintf(file, "clp2: ") > 0, "printing error");
-    libcheck(print_lattice_point(file, clp2, len) == 0, "print_lattice_point failed");
+    int rc = print_dvector(file, cword, len, fmt, "cword: ", "\n");
+    libcheck(rc == 0, "print_dvector failed");
+    rc = print_dvector(file, clp1, len, fmt, "clp1:  ", "\n");
+    libcheck(rc == 0, "print_dvector failed");
+    rc = print_dvector(file, clp2, len, fmt, "clp2:  ", "\n");
+    libcheck(rc == 0, "print_dvector failed");
     return 0;
 
 error:
@@ -368,6 +363,7 @@ static int compare(FILE* outfile, OPT* opt)
     gsl_vector_view v_clp1 = gsl_vector_view_array(clp1, conf->dimension);
     gsl_vector_view v_clp2 = gsl_vector_view_array(clp2, conf->dimension);
 
+    const PRINTING_FMT* fmt = printing_fmt_get(opt->format);
     size_t num_checked = 0;
     size_t num_different = 0;
     while(!conf->num_cwords || num_checked < conf->num_cwords)
@@ -382,7 +378,7 @@ static int compare(FILE* outfile, OPT* opt)
             num_different++;
             if(opt->verbose)
             {
-                rc = print_details(outfile, cword, clp1, clp2, conf->dimension);
+                rc = print_details(outfile, cword, clp1, clp2, conf->dimension, fmt);
                 llibcheck(rc == 0, error_c, "print_details failed");
             }
         }
