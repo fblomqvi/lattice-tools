@@ -22,19 +22,22 @@
 #define FMT_NAME_FPLLL "fplll"
 #define FMT_NAME_MATLAB "matlab"
 #define FMT_NAME_MATHEMATICA "mathematica"
+#define FMT_NAME_PLAIN "plain"
 
 static const PRINTING_FMT standard_formats[] = {
     {"[", "]", "[ ", " ]", " ", "\n", "%f", "%ld"},
     {"[", "]", "[", "]", " ", "\n", "%f", "%ld"},
     {"[", "]", "[", "]", ",", ";\n", "%f", "%ld"},
-    {"{", "}", "{", "}", ",", ",\n", "%f", "%ld"}
+    {"{", "}", "{", "}", ",", ",\n", "%f", "%ld"},
+    {"", "", "", "", " ", "\n", "%f", "%ld"}
 };
 
 static const char* format_names[] = {
     FMT_NAME_DEFAULT,
     FMT_NAME_FPLLL,
     FMT_NAME_MATLAB,
-    FMT_NAME_MATHEMATICA
+    FMT_NAME_MATHEMATICA,
+    FMT_NAME_PLAIN
 };
 
 const char* printing_fmt_get_name(enum PrintingFmt fmt)
@@ -147,4 +150,3 @@ int print_lvector_binary_float(FILE* file, const long* vec, size_t vec_len,
 error:
     return -1;
 }
-
