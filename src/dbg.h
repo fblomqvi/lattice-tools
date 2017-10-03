@@ -162,12 +162,12 @@ void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
         }\
     } while(0)
 
-#define llibcheck_se_pf(c, print_func, label, lt_errno, error_code, msg, ...) \
+#define llibcheck_se_pf(c, print_func, label, lt_errno, error_code) \
     do {\
         if(!(c)) \
         {\
-            lt_errno = error_code;
-            print_func(error_code, msg, ##__VA_ARGS__);\
+            lt_errno = error_code;\
+            print_func("%s", lt_strerror(error_code));\
             goto label;\
         }\
     } while(0)
@@ -201,6 +201,8 @@ void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
 #define check_lt(c, lt_errno, msg, ...) \
     lcheck_lt_pf(c, log_err_lt, error, lt_errno, msg, ##__VA_ARGS__)
 
+#define llibcheck_se(c, label, lt_errno, error_code) \
+    llibcheck_se_pf(c, debug, label, lt_errno, error_code)
 
 //#define check_fatal(c) check(c, "Fatal error")
 

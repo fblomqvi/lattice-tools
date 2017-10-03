@@ -27,7 +27,9 @@ const char* lt_strerror(const int lt_errno)
         case LT_FAILURE:
             return "failure";
         case LT_ELINDEP:
-            return "The basis vectors are linearly dependent";
+            return "the basis vectors are linearly dependent";
+        case LT_ENOMEM:
+            return "malloc failed";
         default:
             return gsl_strerror(lt_errno);
     }

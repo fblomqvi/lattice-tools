@@ -25,6 +25,7 @@ enum
     LT_SUCCESS = 0, 
     LT_FAILURE = -1,
     LT_ELINDEP = 1024,   /* Basis vectors are linearly dependent */
+    LT_ENOMEM,          /* malloc failed */
 };
 
 const char* lt_strerror(const int lt_errno);
