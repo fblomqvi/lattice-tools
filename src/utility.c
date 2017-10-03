@@ -1,3 +1,5 @@
+#include "dbg.h"
+#include "lt_errno.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -16,6 +18,53 @@ gsl_vector *clone_vector(const gsl_vector *v) {
     return c;
 }
 */
+
+int utility_compute_QR_decomposition(gsl_matrix* Q, gsl_matrix* R, const gsl_matrix* B)
+{
+    int ret = LT_FAILURE;
+    size_t n = B->size1;
+    size_t m = B->size2;
+    size_t tausize = (n < m) ? n : m;
+    gsl_matrix* B_copy = gsl_matrix_alloc(n, m);
+    libcheck_mem(B_copy);
+
+    gsl_vector* tau = gsl_vector_alloc(tausize);
+    llibcheck_mem(tau, error_a);
+
+    gsl_matrix_memcpy(B_copy, B);
+    int rc = gsl_linalg_QR_decomp(B_copy, tau);
+    llibcheck(rc == 0, error_a, "gsl_linalg_QR_decomp failed");
+    rc = gsl_linalg_QR_unpack(B_copy, tau, Q, R);
+    llibcheck(rc == 0, error_a, "gsl_linalg_QR_unpack failed");
+
+    // Make the diagonal of R positive, as required by the algorithms.
+    for(size_t i = 0; i < m; i++)
+    {
+        if(gsl_matrix_get(R, i, i) < 0)
+        {
+            gsl_vector_view Rrow = gsl_matrix_row(R, i);
+            gsl_vector_view Qcol = gsl_matrix_column(Q,i);
+            gsl_vector_scale(&Rrow.vector, -1);
+            gsl_vector_scale(&Qcol.vector, -1);
+        }
+    }
+
+    ret = LT_SUCCESS;
+    gsl_vector_free(tau);
+error_a:
+    gsl_matrix_free(B_copy);
+error:
+    return ret;
+}
+
+int utility_Rmm_is_not_singular(const gsl_matrix* R, double epsilon)
+{
+    for(size_t i = 0; i < R->size2; i++)
+        if(fabs(gsl_matrix_get(R, i, i)) < epsilon)
+            return 0;
+
+    return 1;
+}
 
 void print_matrix(gsl_matrix *A) {
     for (size_t i = 0; i < A->size1; i++) {

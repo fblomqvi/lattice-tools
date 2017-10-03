@@ -5,6 +5,9 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_linalg.h>
 
+int utility_compute_QR_decomposition(gsl_matrix* Q, gsl_matrix* R, const gsl_matrix* B);
+int utility_Rmm_is_not_singular(const gsl_matrix* R, double epsilon);
+
 void print_matrix(gsl_matrix *A);
 void fprintf_matrix(FILE *f, gsl_matrix *A);
 void fprintf_result(FILE *res_file, gsl_matrix *B, gsl_vector *t, gsl_vector *res);
