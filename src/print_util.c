@@ -17,6 +17,7 @@
 
 #include "dbg.h"
 #include "print_util.h"
+#include "lt_errno.h"
 
 #define FMT_NAME_DEFAULT "default"
 #define FMT_NAME_FPLLL "fplll"
