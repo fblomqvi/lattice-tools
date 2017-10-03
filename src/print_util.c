@@ -51,7 +51,7 @@ int printing_fmt_parse_name(const char* name)
     for(int i = PRINTING_FMT_DEFAULT; i < PRINTING_FMT_MAX; i++)
         if(!strcmp(name, format_names[i])) return i;
 
-    return -1;
+    return LT_FAILURE;
 }
 
 int printing_fmt_print_names(FILE* file)
@@ -60,10 +60,10 @@ int printing_fmt_print_names(FILE* file)
     for(int i = PRINTING_FMT_DEFAULT; i < PRINTING_FMT_MAX; i++)
         libcheck(fprintf(file, "%s\n", format_names[i]) > 0, "printing error");
 
-    return 0;
+    return LT_SUCCESS;
 
 error:
-    return -1;
+    return LT_FAILURE;
 }
 
 int print_dvector(FILE* file, const double* vec,
@@ -78,10 +78,10 @@ int print_dvector(FILE* file, const double* vec,
     }
     libcheck(fprintf(file, fmt->double_format, vec[vec_len-1]) >= 0, "printing failed");
     libcheck(fprintf(file, "%s%s", fmt->vend_bracket, postfix) >= 0, "printing failed");
-    return 0;
+    return LT_SUCCESS;
 
 error:
-    return -1;
+    return LT_FAILURE;
 }
 
 int print_dvector_binary(FILE* file, const double* vec, size_t vec_len, 
@@ -100,10 +100,10 @@ int print_lvector(FILE* file, const long* vec,
     }
     libcheck(fprintf(file, fmt->integer_format, vec[vec_len-1]) >= 0, "printing failed");
     libcheck(fprintf(file, "%s%s", fmt->vend_bracket, postfix) >= 0, "printing failed");
-    return 0;
+    return LT_SUCCESS;
 
 error:
-    return -1;
+    return LT_FAILURE;
 }
 
 int print_lvector_as_double(FILE* file, const long* vec,
@@ -118,10 +118,10 @@ int print_lvector_as_double(FILE* file, const long* vec,
     }
     libcheck(fprintf(file, fmt->double_format, (double) vec[vec_len-1]) >= 0, "printing failed");
     libcheck(fprintf(file, "%s%s", fmt->vend_bracket, postfix) >= 0, "printing failed");
-    return 0;
+    return LT_SUCCESS;
 
 error:
-    return -1;
+    return LT_FAILURE;
 }
 
 int print_lvector_binary(FILE* file, const long* vec, size_t vec_len, 
@@ -145,8 +145,8 @@ int print_lvector_binary_float(FILE* file, const long* vec, size_t vec_len,
                 == write_size, "fwrite failed");
         left -= write_size;
     }
-    return 0;
+    return LT_SUCCESS;
 
 error:
-    return -1;
+    return LT_FAILURE;
 }
