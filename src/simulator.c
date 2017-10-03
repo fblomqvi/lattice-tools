@@ -115,7 +115,6 @@ SIMULATOR* SIMULATOR_from_basis(gsl_matrix* basis, Algorithm alg)
     sim->alg = alg;
     sim->n = basis->size1;
     sim->m = basis->size2;
-    // Assume that all the basis vectors are linearaly independent
     sim->rate = (double) sim->m / sim->n;
 
     // Temporary
