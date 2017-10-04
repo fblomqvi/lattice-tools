@@ -10,6 +10,10 @@ In short:
      make
      make install
 
+Dependencies:
+
+* [GSL](https://www.gnu.org/software/gsl/)
+* [GMP](https://gmplib.org/)
 
 USAGE
 -----
