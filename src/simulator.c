@@ -22,6 +22,9 @@
 #include <time.h>
 #include <stdio.h>
 #include <math.h>
+#include <gsl/gsl_permutation.h>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_blas.h>
 
 #define EPSILON 10E-10
 
@@ -67,7 +70,9 @@ struct s_simulator
     size_t n;
     size_t m;
     double rate;
+    double vol;
     Algorithm alg;
+    int cutoff_reached;
 };
 
 static void init_function_pointers(SIMULATOR* sim, SIM_OPTIONS* opt);
@@ -103,6 +108,8 @@ static int sim_print_snr_result(FILE* file, double snr, size_t frame_errs,
 static int sim_print_time_and_speed(FILE* file, size_t frames, 
                                     size_t bits, double time_elapsed);
 
+static int compute_volume(double* vol, const gsl_matrix* B);
+
 int SIMULATOR_from_basis(SIMULATOR** sim_ptr, gsl_matrix* basis, Algorithm alg)
 {
     int lt_errno = LT_SUCCESS;
@@ -116,13 +123,22 @@ int SIMULATOR_from_basis(SIMULATOR** sim_ptr, gsl_matrix* basis, Algorithm alg)
     sim->alg = alg;
     sim->n = basis->size1;
     sim->m = basis->size2;
+    sim->cutoff_reached = 0;
     sim->rate = (double) sim->m / sim->n;
+    
+    lt_errno = compute_volume(&sim->vol, basis);
+    lt_llibcheck(lt_errno, error_b, "compute_volume failed");
+
+    debug("rate: %f", sim->rate);
+    debug("volume: %f", sim->vol);
 
     // Temporary
     sim->dt_size = sizeof(double);
     *sim_ptr = sim;
     return lt_errno;
 
+error_b:
+    algorithm_free_ws(sim->alg_ws, sim->alg);
 error_a:
     free(sim);
 error:
@@ -170,7 +186,7 @@ int SIMULATOR_run(SIMULATOR* sim, SIM_OPTIONS* opt)
     sim->total = 0;
 
     time_t start = time(NULL);
-    while(sim->snr < (opt->snr_end + 0.001))
+    while(sim->snr < (opt->snr_end + 0.001) && !sim->cutoff_reached)
     {
         int rc = simulation_run_snr(sim, opt, ws);
         llibcheck(rc == 0, error_d, "simulation_run_snr failed");
@@ -234,7 +250,6 @@ static void process_cword(SIMULATOR* sim, SIM_OPTIONS* opt,
                         SIM_WS* ws, SIM_STATUS* status)
 {
     sim->get_received(sim->channel);
-    //sim->init_costs(sim->tg, ws->received, status->snr_rms);
     sim->decode(&ws->v_d.vector, &ws->v_r.vector, sim->basis, sim->alg_ws);
     status->frame_errs += sim->is_decoding_error(ws, sim->n, &status->bit_errs);
     status->frames++;
@@ -260,10 +275,17 @@ static void simulation_status_init(SIM_STATUS* status, SIMULATOR* sim)
     status->frames = 0;
     status->frame_errs = 0;
     status->bit_errs = 0;
-    double sigma_sqr_inv = 2.0 * sim->rate * pow(10.0, (sim->snr / 10.0));
-    status->snr_rms = 2.0 * sigma_sqr_inv;     // 2/sigma^2
-    CHANNEL_set_sigma(sim->channel, 1.0 / sqrt(sigma_sqr_inv));
-    //printf("Sigma: %f\n", 1.0 / sqrt(sigma_sqr_inv));
+    double sigma = sqrt(sim->vol / pow(10.0, sim->snr));
+    CHANNEL_set_sigma(sim->channel, sigma);
+    debug("sigma: %f", sigma);
+}
+
+static int simulation_cutoff_reached(SIMULATOR* sim, SIM_STATUS* status, SIM_OPTIONS* opt)
+{
+    const size_t bits = status->frames * sim->n;
+    const double fer = (double) status->frame_errs / status->frames;
+    const double ber = (double) status->bit_errs / bits;
+    return fer <= opt->frame_err_cutoff || ber <= opt->bit_err_cutoff;
 }
 
 static int simulation_zero_cword_run_snr(SIMULATOR* sim, SIM_OPTIONS* opt, SIM_WS* ws)
@@ -277,6 +299,7 @@ static int simulation_zero_cword_run_snr(SIMULATOR* sim, SIM_OPTIONS* opt, SIM_W
         sim->total += status.frames;
         sim_print_snr_result(sim->outfile, sim->snr, status.frame_errs,
                             status.bit_errs, status.frames, status.frames * sim->n);
+        sim->cutoff_reached = simulation_cutoff_reached(sim, &status, opt);
         return 0;
 }
 
@@ -296,6 +319,7 @@ static int simulation_read_cword_run_snr(SIMULATOR* sim, SIM_OPTIONS* opt, SIM_W
         sim->total += status.frames;
         sim_print_snr_result(sim->outfile, sim->snr, status.frame_errs,
                             status.bit_errs, status.frames, status.frames * sim->n);
+        sim->cutoff_reached = simulation_cutoff_reached(sim, &status, opt);
         return 0;
 
 error:
@@ -446,4 +470,32 @@ static int sim_print_time_and_speed(FILE* file, size_t frames,
     return fprintf(file,"Program has processed %zu frames in %f Seconds\n"
             "Resulting throughput is %f Mb/sec\n", frames, time_elapsed,
             bits / (time_elapsed * 1024 *1024)) > 0 ? 0 : -1;
+}
+
+static int compute_volume(double* vol, const gsl_matrix* B)
+{
+    int lt_errno = LT_SUCCESS;
+    const size_t m = B->size2;
+
+    gsl_matrix* G = gsl_matrix_alloc(m, m);
+    libcheck_se_mem(G, lt_errno, GSL_ENOMEM);
+
+    gsl_permutation* perm = gsl_permutation_alloc(m);
+    llibcheck_se_mem(perm, error_a, lt_errno, GSL_ENOMEM);
+
+    lt_errno = gsl_blas_dgemm(CblasTrans, CblasNoTrans, 1.0, B, B, 0.0, G);
+    lt_llibcheck(lt_errno, error_b, "gsl_blas_dgemm failed");
+
+    int signum;
+    lt_errno = gsl_linalg_LU_decomp(G, perm, &signum);
+    lt_llibcheck(lt_errno, error_b, "gsl_linalg_LU_decomp failed");
+
+    *vol = sqrt(gsl_linalg_LU_det(G, signum));
+
+error_b:
+    gsl_permutation_free(perm);
+error_a:
+    gsl_matrix_free(G);
+error:
+    return lt_errno;
 }

@@ -66,9 +66,11 @@ static int print_help(FILE* file)
 
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 {
-    static const char* optstring = "a:E:r:S:e:b:s:tc";
+    static const char* optstring = "a:B:E:F:r:S:e:b:s:tc";
     static struct option longopt[] = {
         {"algorithm", required_argument, NULL, 'a'},
+        {"bit-cutoff", required_argument, NULL, 'B'},
+        {"frame-cutoff", required_argument, NULL, 'F'},
         {"min-error", required_argument, NULL, 'E'},
         {"rng", required_argument, NULL, 'r'},
         {"seed", required_argument, NULL, 'S'},
@@ -88,6 +90,8 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
         .min_err = 50, .snr_begin = 1.0,
         .snr_step = 0.2, .snr_end = 3.0, .seed = 0,
         .zero_cwords = 1, .infile = NULL, .outfile = NULL,
+        .bit_err_cutoff = 1E-9,
+        .frame_err_cutoff = 1E-9,
         .rng_type = gsl_rng_default };
 
     // Parsing the command line
@@ -106,9 +110,21 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                     check(opt->alg > 0, "invalid argument to option '%c': '%s'", ch, optarg);
                 }
                 break;
+            case 'B':
+                opt->sim.bit_err_cutoff = strtod(optarg, &endptr);
+                check(*endptr == '\0' && opt->sim.bit_err_cutoff >= 0
+                        && !(errno == ERANGE && opt->sim.bit_err_cutoff == HUGE_VAL),
+                    "invalid argument to option '%c': '%s'", ch, optarg);
+                break;
             case 'E':
                 opt->sim.min_err = strtoul(optarg, &endptr, 10);
                 check(*endptr == '\0' && !(errno == ERANGE && opt->sim.min_err == ULONG_MAX),
+                    "invalid argument to option '%c': '%s'", ch, optarg);
+                break;
+            case 'F':
+                opt->sim.frame_err_cutoff = strtod(optarg, &endptr);
+                check(*endptr == '\0' && opt->sim.frame_err_cutoff >= 0
+                        && !(errno == ERANGE && opt->sim.frame_err_cutoff == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 'r':
@@ -130,19 +146,19 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 break;
             case 'e':
                 opt->sim.snr_end = strtod(optarg, &endptr);
-                check(*endptr == '\0' && opt->sim.snr_end >= 0 
+                check(*endptr == '\0' && opt->sim.snr_end >= 0
                         && !(errno == ERANGE && opt->sim.snr_end == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 'b':
                 opt->sim.snr_begin = strtod(optarg, &endptr);
-                check(*endptr == '\0' && opt->sim.snr_begin >= 0 
+                check(*endptr == '\0' && opt->sim.snr_begin >= 0
                         && !(errno == ERANGE && opt->sim.snr_begin == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 's':
                 opt->sim.snr_step = strtod(optarg, &endptr);
-                check(*endptr == '\0' && opt->sim.snr_step >= 0 
+                check(*endptr == '\0' && opt->sim.snr_step >= 0
                         && !(errno == ERANGE && opt->sim.snr_step == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;

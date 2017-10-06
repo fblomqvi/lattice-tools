@@ -31,6 +31,8 @@ typedef struct s_simulator_options
     double snr_begin;
     double snr_step;
     double snr_end;
+    double bit_err_cutoff;
+    double frame_err_cutoff;
     unsigned long seed;
     int zero_cwords;
     const gsl_rng_type* rng_type;
