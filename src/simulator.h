@@ -28,15 +28,27 @@ typedef struct s_simulator_options
     char* infile;
     char* outfile;
     size_t min_err;
-    double snr_begin;
-    double snr_step;
-    double snr_end;
+    double vnr_begin;
+    double vnr_step;
+    double vnr_end;
     double bit_err_cutoff;
     double frame_err_cutoff;
     unsigned long seed;
     int zero_cwords;
     const gsl_rng_type* rng_type;
 } SIM_OPTIONS;
+
+/*
+typedef struct s_simulation_status
+{
+    size_t dimension;
+    size_t frames;
+    size_t frame_errs;
+    size_t bit_errs;
+    double sigma;
+    double vnr;
+} SIM_STATUS;
+*/
 
 /* Takes ownership of the basis matrix. */
 int SIMULATOR_from_basis(SIMULATOR** sim_ptr, gsl_matrix* basis, Algorithm alg);

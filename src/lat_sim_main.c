@@ -47,15 +47,19 @@ static int print_help(FILE* file)
 "  -a, --algorithm=ALG          Select the decoding algorithm. To see a list of all\n"
 "                                 available algorithms give 'list' as argument.\n"
 "                                 The default algorithm is '" ALG_NAME_SPHERE "'.\n"
-"  -E, --min-errors=ERRORS      The minimum number of frame errors per SNR. The default\n"
+"  -E, --min-errors=ERRORS      The minimum number of frame errors per VNR. The default\n"
 "                                 is 50.\n"
 "  -r, --rng=RNG                The random number generator to use. To see a list of all\n"
 "                                 available generators give 'list' as argument.\n"
 "  -S, --seed=SEED              The seed for the random number generator.\n"
-"  -e, --snr-end=END            The final SNR. The default is 3.0.\n"
-"  -b, --snr-begin=BEGIN        The initial SNR. The default is 1.0.\n"
-"  -s, --snr-step=STEP          The step size used when incrementing the SNR. The\n"
-"                                 default step is 0.2.\n"
+"  -e, --vnr-end=END            The final VNR. The default is 20.\n"
+"  -b, --vnr-begin=BEGIN        The initial VNR. The default is 5.\n"
+"  -s, --vnr-step=STEP          The step size used when incrementing the VNR. The\n"
+"                                 default step is 1.0.\n"
+"  -B, --ber-cutoff=BER         Stop the simulation when the bit error rate drops\n"
+"                                 below BER. The default is 1E-10.\n"
+"  -F, --fer-cutoff=FER         Stop the simulation when the frame error rate drops\n"
+"                                 below FER. The default is 1E-10.\n"
 "  -t, --transpose              Transpose the basis read from INPUT.\n"
 "      --help                   Display this help and exit.\n"
 "      --version                Output version information and exit.";
@@ -69,14 +73,14 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     static const char* optstring = "a:B:E:F:r:S:e:b:s:tc";
     static struct option longopt[] = {
         {"algorithm", required_argument, NULL, 'a'},
-        {"bit-cutoff", required_argument, NULL, 'B'},
-        {"frame-cutoff", required_argument, NULL, 'F'},
+        {"ber-cutoff", required_argument, NULL, 'B'},
+        {"fer-cutoff", required_argument, NULL, 'F'},
         {"min-error", required_argument, NULL, 'E'},
         {"rng", required_argument, NULL, 'r'},
         {"seed", required_argument, NULL, 'S'},
-        {"snr-end", required_argument, NULL, 'e'},
-        {"snr-begin", required_argument, NULL, 'b'},
-        {"snr-step", required_argument, NULL, 's'},
+        {"vnr-end", required_argument, NULL, 'e'},
+        {"vnr-begin", required_argument, NULL, 'b'},
+        {"vnr-step", required_argument, NULL, 's'},
         {"transpose", no_argument, NULL, 't'},
         {"cwords-from-stdin", no_argument, NULL, 'c'},
         {"help", no_argument, NULL, 'h'},
@@ -87,11 +91,11 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     // Setting default options
     *opt = (OPT) { .alg = ALG_SPHERE_SE, .transpose = 1 };
     opt->sim = (SIM_OPTIONS) {
-        .min_err = 50, .snr_begin = 1.0,
-        .snr_step = 0.2, .snr_end = 3.0, .seed = 0,
+        .min_err = 50, .vnr_begin = 5.0,
+        .vnr_step = 1.0, .vnr_end = 20.0, .seed = 0,
         .zero_cwords = 1, .infile = NULL, .outfile = NULL,
-        .bit_err_cutoff = 1E-9,
-        .frame_err_cutoff = 1E-9,
+        .bit_err_cutoff = 1E-10,
+        .frame_err_cutoff = 1E-10,
         .rng_type = gsl_rng_default };
 
     // Parsing the command line
@@ -145,21 +149,21 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 'e':
-                opt->sim.snr_end = strtod(optarg, &endptr);
-                check(*endptr == '\0' && opt->sim.snr_end >= 0
-                        && !(errno == ERANGE && opt->sim.snr_end == HUGE_VAL),
+                opt->sim.vnr_end = strtod(optarg, &endptr);
+                check(*endptr == '\0' && opt->sim.vnr_end >= 0
+                        && !(errno == ERANGE && opt->sim.vnr_end == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 'b':
-                opt->sim.snr_begin = strtod(optarg, &endptr);
-                check(*endptr == '\0' && opt->sim.snr_begin >= 0
-                        && !(errno == ERANGE && opt->sim.snr_begin == HUGE_VAL),
+                opt->sim.vnr_begin = strtod(optarg, &endptr);
+                check(*endptr == '\0' && opt->sim.vnr_begin >= 0
+                        && !(errno == ERANGE && opt->sim.vnr_begin == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 's':
-                opt->sim.snr_step = strtod(optarg, &endptr);
-                check(*endptr == '\0' && opt->sim.snr_step >= 0
-                        && !(errno == ERANGE && opt->sim.snr_step == HUGE_VAL),
+                opt->sim.vnr_step = strtod(optarg, &endptr);
+                check(*endptr == '\0' && opt->sim.vnr_step >= 0
+                        && !(errno == ERANGE && opt->sim.vnr_step == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 't':
