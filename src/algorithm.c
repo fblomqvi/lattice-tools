@@ -23,16 +23,43 @@
 #include "sphere_pohst.h"
 #include "sphere_se.h"
 
-int algorithm_parse_name(const char* alg)
+#define ALG_NAME_BABAI "babai"
+#define ALG_NAME_DPLANE "dplane"
+#define ALG_NAME_DPLANE_VANILLA "dplane-vanilla"
+#define ALG_NAME_SPHERE_DP "dplane-pohst"
+#define ALG_NAME_SPHERE_SE "sphere"
+#define ALG_NAME_SPHERE_POHST "sphere-pohst"
+
+static const char* alg_names[] = {
+    ALG_NAME_BABAI,
+    ALG_NAME_DPLANE,
+    ALG_NAME_DPLANE_VANILLA,
+    ALG_NAME_SPHERE_POHST,
+    ALG_NAME_SPHERE_DP,
+    ALG_NAME_SPHERE_SE
+};
+
+int algorithm_parse_name(const char* name)
 {
-    if(!strcmp(alg, ALG_NAME_BABAI)) return ALG_BABAI;
-    if(!strcmp(alg, ALG_NAME_DPLANE)) return ALG_DPLANE;
-    if(!strcmp(alg, ALG_NAME_DPLANE_VANILLA)) return ALG_DPLANE_VANILLA;
-    if(!strcmp(alg, ALG_NAME_SPHERE)) return ALG_SPHERE_SE;
-    if(!strcmp(alg, ALG_NAME_SPHERE_SE)) return ALG_SPHERE_SE;
-    if(!strcmp(alg, ALG_NAME_SPHERE_DP)) return ALG_SPHERE_DP;
-    if(!strcmp(alg, ALG_NAME_SPHERE_POHST)) return ALG_SPHERE_POHST;
-    return 0;
+    for(int i = ALG_BABAI; i < ALG_MAX; i++)
+        if(!strcmp(name, alg_names[i])) return i;
+
+    return LT_FAILURE;
+}
+
+const char* algorithm_get_name(Algorithm alg)
+{ return alg_names[alg]; }
+
+int algorithm_print_names(FILE* file)
+{
+    libcheck(fprintf(file, "Available algorithms are:\n") > 0, "printing error");
+    for(int i = ALG_BABAI; i < ALG_MAX; i++)
+        libcheck(fprintf(file, "%s\n", alg_names[i]) > 0, "printing error");
+
+    return LT_SUCCESS;
+
+error:
+    return LT_FAILURE;
 }
 
 int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws, 
@@ -94,19 +121,3 @@ void algorithm_free_ws(void* ws, Algorithm alg)
     }
 }
 
-int algorithm_print_names(FILE* file)
-{
-    libcheck(fprintf(file, "Available algorithms are:\n") > 0, "printing error");
-    libcheck(fprintf(file, "%s\n", ALG_NAME_BABAI) > 0, "printing error");
-    libcheck(fprintf(file, "%s\n", ALG_NAME_DPLANE) > 0, "printing error");
-    libcheck(fprintf(file, "%s\n", ALG_NAME_DPLANE_VANILLA) > 0, "printing error");
-    libcheck(fprintf(file, "%s\n", ALG_NAME_SPHERE_DP) > 0, "printing error");
-    libcheck(fprintf(file, "%s\n", ALG_NAME_SPHERE_SE) > 0, "printing error");
-    libcheck(fprintf(file, "%s\n", ALG_NAME_SPHERE_POHST) > 0, "printing error");
-    libcheck(fprintf(file, "%s (a synonym for %s)\n",
-                ALG_NAME_SPHERE, ALG_NAME_SPHERE_SE) > 0, "printing error");
-    return 0;
-
-error:
-    return -1;
-}

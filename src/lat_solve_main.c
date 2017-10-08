@@ -47,8 +47,8 @@ typedef struct s_options
     char* basis_file;
     char* output;
     size_t cword_num;
-    Algorithm alg;
-    Algorithm alg_cmp;
+    int alg;
+    int alg_cmp;
     Mode mode;
     int no_config;
     int binary_out;
@@ -76,17 +76,14 @@ static int print_help(FILE* file)
 {
     static const char* formatstr = 
 "Usage: %s [OPTION]... INPUT\n"
-"  or:  %s [OPTION]... INPUT OUTPUT\n\n%s\n";
-
-    static const char* helpstr = 
-
+"  or:  %s [OPTION]... INPUT OUTPUT\n\n"
 "Solves the closest vector problem on (R^n, L), where L is the lattice defined\n"
 "by the basis read from INPUT. Reads the points to decode from stdin in the\n"
 "binary format produced by rnd-point. Outputs to stdout if no output file is given.\n\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
 "  -a, --algorithm=ALG1         Select the decoding algorithm. To see a list of all\n"
 "                                 available algorithms give 'list' as argument.\n"
-"                                 The default algorithm is '" ALG_NAME_SPHERE "'.\n"
+"                                 The default algorithm is '%s'.\n"
 "  -c, --compare=ALG2           Compare ALG2 to ALG1.\n"
 "  -f, --output-format=FMT      The output format that will be used if 'R' is given.\n"
 "                                 Give 'list' as argument to get a list of all formats.\n"
@@ -99,9 +96,10 @@ static int print_help(FILE* file)
 "  -t, --transpose              Transpose the basis read from INPUT.\n"
 "  -v, --verbose                Verbose output. Only affects 'compare mode'.\n"
 "      --help                   Display this help and exit.\n"
-"      --version                Output version information and exit.";
+"      --version                Output version information and exit.\n";
     
-    return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0) 
+    return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME,
+                algorithm_get_name(ALG_SPHERE_SE)) < 0)
                 ? LT_FAILURE : LT_SUCCESS;
 }
 
@@ -136,13 +134,13 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 else
                 {
                     opt->alg = algorithm_parse_name(optarg);
-                    check(opt->alg > 0, "invalid argument to option '%c': '%s'",
+                    check(opt->alg >= 0, "invalid argument to option '%c': '%s'",
                             ch, optarg);
                 }
                 break;
             case 'c':
                 opt->alg_cmp = algorithm_parse_name(optarg);
-                check(opt->alg_cmp > 0, "invalid argument to option '%c': '%s'", ch, optarg);
+                check(opt->alg_cmp >= 0, "invalid argument to option '%c': '%s'", ch, optarg);
                 opt->mode = MODE_COMPARE;
                 break;
             case 'n':

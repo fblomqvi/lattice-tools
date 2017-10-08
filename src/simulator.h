@@ -25,8 +25,6 @@ typedef struct s_simulator SIMULATOR;
 
 typedef struct s_simulator_options
 {
-    char* infile;
-    char* outfile;
     size_t min_err;
     double vnr_begin;
     double vnr_step;
@@ -38,20 +36,30 @@ typedef struct s_simulator_options
     const gsl_rng_type* rng_type;
 } SIM_OPTIONS;
 
-/*
 typedef struct s_simulation_status
 {
-    size_t dimension;
+    size_t n;
+    size_t m;
     size_t frames;
     size_t frame_errs;
     size_t bit_errs;
+    size_t total;
+    double rate;
     double sigma;
     double vnr;
+    double vol;
 } SIM_STATUS;
-*/
+
+typedef int (*SimCallback)(const SIM_STATUS*, void*);
 
 /* Takes ownership of the basis matrix. */
 int SIMULATOR_from_basis(SIMULATOR** sim_ptr, gsl_matrix* basis, Algorithm alg);
+
+void SIMULATOR_set_callbacks(SIMULATOR* sim,
+                            SimCallback vnr_callback,
+                            SimCallback start_callback,
+                            SimCallback end_callback,
+                            void* args);
 
 void SIMULATOR_free(SIMULATOR* sim);
 

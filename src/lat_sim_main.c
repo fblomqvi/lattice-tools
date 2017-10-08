@@ -20,6 +20,8 @@
 #include "rng.h"
 #include "parse.h"
 #include "simulator.h"
+#include "configuration.h"
+#include "lat_sim.h"
 #include <getopt.h>
 #include <errno.h>
 #include <string.h>
@@ -30,8 +32,10 @@
 
 typedef struct s_opt
 {
+    char* infile;
+    char* outfile;
     int transpose;
-    Algorithm alg;
+    int alg;
     SIM_OPTIONS sim;
 } OPT;
 
@@ -39,14 +43,12 @@ typedef struct s_opt
 static int print_help(FILE* file)
 {
     static const char* formatstr = 
-"Usage: %s [OPTION]... INPUT OUTPUT\n\n%s\n";
-
-    static const char* helpstr = 
+"Usage: %s [OPTION]... INPUT OUTPUT\n\n"
 "Decoding simulations for lattices. The basis of the lattice is read from INPUT.\n\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
 "  -a, --algorithm=ALG          Select the decoding algorithm. To see a list of all\n"
 "                                 available algorithms give 'list' as argument.\n"
-"                                 The default algorithm is '" ALG_NAME_SPHERE "'.\n"
+"                                 The default algorithm is '%s'.\n"
 "  -E, --min-errors=ERRORS      The minimum number of frame errors per VNR. The default\n"
 "                                 is 50.\n"
 "  -r, --rng=RNG                The random number generator to use. To see a list of all\n"
@@ -62,9 +64,10 @@ static int print_help(FILE* file)
 "                                 below FER. The default is 1E-10.\n"
 "  -t, --transpose              Transpose the basis read from INPUT.\n"
 "      --help                   Display this help and exit.\n"
-"      --version                Output version information and exit.";
+"      --version                Output version information and exit.\n";
     
-    return (fprintf(file, formatstr, PROGRAM_NAME, helpstr) < 0) 
+    return (fprintf(file, formatstr, PROGRAM_NAME,
+                algorithm_get_name(ALG_SPHERE_SE)) < 0)
                 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
@@ -89,14 +92,18 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     };
     
     // Setting default options
-    *opt = (OPT) { .alg = ALG_SPHERE_SE, .transpose = 1 };
+    *opt = (OPT) { 
+        .infile = NULL, .outfile = NULL,
+        .alg = ALG_SPHERE_SE, .transpose = 1
+    };
     opt->sim = (SIM_OPTIONS) {
         .min_err = 50, .vnr_begin = 5.0,
         .vnr_step = 1.0, .vnr_end = 20.0, .seed = 0,
-        .zero_cwords = 1, .infile = NULL, .outfile = NULL,
+        .zero_cwords = 1, 
         .bit_err_cutoff = 1E-10,
         .frame_err_cutoff = 1E-10,
-        .rng_type = gsl_rng_default };
+        .rng_type = gsl_rng_default
+    };
 
     // Parsing the command line
     int ch;
@@ -111,7 +118,7 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 else
                 {
                     opt->alg = algorithm_parse_name(optarg);
-                    check(opt->alg > 0, "invalid argument to option '%c': '%s'", ch, optarg);
+                    check(opt->alg >= 0, "invalid argument to option '%c': '%s'", ch, optarg);
                 }
                 break;
             case 'B':
@@ -183,10 +190,10 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 
     // Check for mandatory arguments, i.e., input and output files.
     lcheck_pf(optind < argc, log_plain, error, "No input file given");
-    opt->sim.infile = argv[optind++];
+    opt->infile = argv[optind++];
 
     lcheck_pf(optind < argc, log_plain, error, "No output file given");
-    opt->sim.outfile = argv[optind];
+    opt->outfile = argv[optind];
 
     return;
 
@@ -195,25 +202,60 @@ error:
     exit(EXIT_FAILURE);
 }
 
+/*
+static int print_config(FILE* file, const OPT* opt)
+{
+    struct config conf[] = {
+        {"algorithm", (union value) opt->bits, type_size, opt->bits},
+        {"dimension", (union value) opt->par.dimension, type_size, 1},
+        {"exponent", (union value) opt->par.exponent, type_size, opt->par.exponent > 1},
+        {"output-format", (union value) printing_fmt_get_name(opt->format),
+                        type_str, opt->format != PRINTING_FMT_DEFAULT},
+        {"gmp-for-rand", (union value) opt->use_gmp_rand, type_bool, opt->bits < 32},
+        {"min", (union value) opt->min, type_long, opt->min_set},
+        {"max", (union value) opt->max, type_long, opt->max_set},
+        {"rng", (union value) (rng ? gsl_rng_name(rng) : ""), type_str, 
+                        rng != NULL && rng->type != gsl_rng_default},
+        {"seed", (union value) opt->seed, type_ulong, opt->seed != 0},
+        {"transpose", (union value) opt->cols_as_basis, type_bool, 1},
+        {"type", (union value) type_get_name(opt->type), type_str, 1},
+        {0, (union value) 0, type_bool, 0}
+    };
+
+    return util_print_genby_and_config(file, PROGRAM_NAME, NULL, NULL, conf);
+}
+*/
+
 static int parse_and_simulate(FILE* file, OPT* opt)
 {
+    int lt_errno = LT_FAILURE;
     gsl_matrix* basis = parse_fpLLL_matrix(file, opt->transpose);
-    check(basis, "error when processing input file '%s'", opt->sim.infile);
+    check(basis, "error when processing input file '%s'", opt->infile);
 
     SIMULATOR* sim; 
-    int lt_errno = SIMULATOR_from_basis(&sim, basis, opt->alg);
+    lt_errno = SIMULATOR_from_basis(&sim, basis, opt->alg);
     lt_lcheck(lt_errno, error_a, "SIMULATOR_from_basis failed");
 
-    int rc = SIMULATOR_run(sim, &opt->sim);
-    SIMULATOR_free(sim);
-    check(rc == 0, "simulation failed");
+    LSC_ARGS callback_args;
+    callback_args.file = fopen(opt->outfile, "w");
+    check_se(callback_args.file, lt_errno, LT_ESYSTEM,
+            "could not open '%s' for writing", opt->outfile);
 
-    return 0;
+    SIMULATOR_set_callbacks(sim, lat_sim_vnr_callback_std,
+                            lat_sim_start_callback_std,
+                            lat_sim_end_callback,
+                            &callback_args);
+
+    lt_errno = SIMULATOR_run(sim, &opt->sim);
+    SIMULATOR_free(sim);
+    lt_check(lt_errno, "SIMULATOR_run failed");
+
+    return lt_errno;
 
 error_a:
     gsl_matrix_free(basis);
 error:
-    return -1;
+    return lt_errno;
 }
 
 int main(int argc, char* argv[])
@@ -225,8 +267,8 @@ int main(int argc, char* argv[])
     gsl_set_error_handler_off();
     parse_cmdline(argc, argv, &opt);
 
-    FILE* infile = fopen(opt.sim.infile, "r");
-    check(infile, "Could not open '%s'", opt.sim.infile);
+    FILE* infile = fopen(opt.infile, "r");
+    check(infile, "Could not open '%s'", opt.infile);
 
     int rc = parse_and_simulate(infile, &opt);
     llibcheck(rc == 0, error_a, "parse_and_simulate failed");

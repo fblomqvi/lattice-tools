@@ -34,26 +34,14 @@
         "# at %s\n"\
         "# with the following options:\n"
 
-#define TABLE_VLINE "+----------+--------------+------------+"\
-                    "------------+------------------+----------------+"
-
 typedef struct s_decoder_workspace
 {
     double* decoded;
-    double* transmitted;
     double* received;
+    double* transmitted;
     gsl_vector_view v_d;
     gsl_vector_view v_r;
 } SIM_WS;
-
-typedef struct s_simulation_status
-{
-    size_t frames;
-    size_t frame_errs;
-    size_t bit_errs;
-    double sigma;
-    double vnr_rms;
-} SIM_STATUS;
 
 struct s_simulator
 {
@@ -64,13 +52,12 @@ struct s_simulator
     void (*get_received)(CHANNEL*);
     SOLVE_func decode;
     size_t (*is_decoding_error)(SIM_WS*, size_t len, size_t*);
-    double vnr;
-    size_t total;
+    SimCallback vnr_callback;
+    SimCallback start_callback;
+    SimCallback end_callback;
+    void* callback_args;
     size_t dt_size;
-    size_t n;
-    size_t m;
-    double rate;
-    double vol;
+    SIM_STATUS status;
     Algorithm alg;
     int cutoff_reached;
 };
@@ -80,8 +67,7 @@ static void init_function_pointers(SIMULATOR* sim, SIM_OPTIONS* opt);
 static size_t is_not_zero_codeword(SIM_WS* ws, size_t len, size_t* bit_errs);
 static size_t is_frame_error(SIM_WS* ws, size_t len, size_t* bit_errs);
 
-static void process_cword(SIMULATOR* sim, SIM_OPTIONS* opt, 
-                        SIM_WS* ws, SIM_STATUS* status);
+static void process_cword(SIMULATOR* sim, SIM_WS* ws, SIM_STATUS* status);
 
 static int read_cword_binary(void* cword, size_t cword_len, size_t dt_size);
 
@@ -92,21 +78,6 @@ static int simulation_read_cword_run_vnr(SIMULATOR* sim, SIM_OPTIONS* opt, SIM_W
 
 static SIM_WS* SIM_WS_alloc(size_t n, size_t size, int zero_cwords);
 static void SIM_WS_free(SIM_WS* ws);
-
-static int sim_print_configuration(FILE* file, SIM_OPTIONS* opt, size_t n, 
-                                size_t k, double rate, const char* prefix);
-
-static int sim_print_information(FILE* file, SIM_OPTIONS* opt, size_t n, 
-                                size_t k, double rate, const char* prefix);
-
-static int sim_print_table_headers(FILE* file);
-static int sim_print_table_footer(FILE* file);
-
-static int sim_print_vnr_result(FILE* file, double vnr, size_t frame_errs, 
-                        size_t bit_errs, size_t frames, size_t bits);
-
-static int sim_print_time_and_speed(FILE* file, size_t frames, 
-                                    size_t bits, double time_elapsed);
 
 static int compute_volume(double* vol, const gsl_matrix* B);
 
@@ -121,17 +92,17 @@ int SIMULATOR_from_basis(SIMULATOR** sim_ptr, gsl_matrix* basis, Algorithm alg)
 
     sim->basis = basis;
     sim->alg = alg;
-    sim->n = basis->size1;
-    sim->m = basis->size2;
-    sim->cutoff_reached = 0;
-    sim->rate = (double) sim->m / sim->n;
+    sim->status.n =  basis->size1;
+    sim->status.m = basis->size2;
+    sim->status.rate = (double) sim->status.m / sim->status.n;
     
-    lt_errno = compute_volume(&sim->vol, basis);
+    lt_errno = compute_volume(&sim->status.vol, basis);
     lt_llibcheck(lt_errno, error_b, "compute_volume failed");
 
-    debug("rate: %f", sim->rate);
-    debug("volume: %f", sim->vol);
+    debug("rate: %f", sim->status.rate);
+    debug("volume: %f", sim->status.vol);
 
+    sim->cutoff_reached = 0;
     // Temporary
     sim->dt_size = sizeof(double);
     *sim_ptr = sim;
@@ -144,6 +115,18 @@ error_a:
 error:
     *sim_ptr = NULL;
     return lt_errno;
+}
+
+void SIMULATOR_set_callbacks(SIMULATOR* sim, 
+                            SimCallback vnr_callback, 
+                            SimCallback start_callback,
+                            SimCallback end_callback,
+                            void* args)
+{
+    sim->vnr_callback = vnr_callback;
+    sim->start_callback = start_callback;
+    sim->end_callback = end_callback;
+    sim->callback_args = args;
 }
 
 void SIMULATOR_free(SIMULATOR* sim)
@@ -159,22 +142,15 @@ void SIMULATOR_free(SIMULATOR* sim)
 int SIMULATOR_run(SIMULATOR* sim, SIM_OPTIONS* opt)
 {
     int ret = LT_FAILURE;
-    SIM_WS* ws = SIM_WS_alloc(sim->n, sim->dt_size, opt->zero_cwords);
+    SIM_WS* ws = SIM_WS_alloc(sim->status.n, sim->dt_size, opt->zero_cwords);
     check_mem(ws);
 
     opt->seed = opt->seed ? opt->seed : (unsigned long) time(NULL) + clock();
     gsl_rng* rng = rng_alloc_and_seed(opt->rng_type, opt->seed);
     lcheck_mem(rng, error_a);
 
-    sim->channel = CHANNEL_alloc(ws->received, ws->transmitted, sim->n, 0, rng);
+    sim->channel = CHANNEL_alloc(ws->received, ws->transmitted, sim->status.n, 0, rng);
     lcheck_mem(sim->channel, error_b);
-
-    sim->outfile = fopen(opt->outfile, "w");
-    lcheck(sim->outfile, error_c, "could not open '%s' for writing", opt->outfile);
-
-    sim_print_configuration(sim->outfile, opt, sim->n, sim->m, sim->rate, "# ");
-    sim_print_information(stdout, opt, sim->n, sim->m, sim->rate, "");
-    sim_print_table_headers(stdout);
 
     init_function_pointers(sim, opt);
 
@@ -182,26 +158,33 @@ int SIMULATOR_run(SIMULATOR* sim, SIM_OPTIONS* opt)
         = opt->zero_cwords 
         ? simulation_zero_cword_run_vnr : simulation_read_cword_run_vnr;
 
-    sim->vnr = opt->vnr_begin;
-    sim->total = 0;
+    sim->status.vnr = opt->vnr_begin;
+    sim->status.total = 0;
 
-    time_t start = time(NULL);
-    while(sim->vnr < (opt->vnr_end + 0.001) && !sim->cutoff_reached)
+    int rc;
+    if(sim->start_callback)
     {
-        int rc = simulation_run_vnr(sim, opt, ws);
-        llibcheck(rc == 0, error_d, "simulation_run_vnr failed");
-        sim->vnr += opt->vnr_step;
+        rc = sim->start_callback(&sim->status, sim->callback_args);
+        llibcheck(rc == 0, error_c, "simulation callback failed");
     }
 
-    sim_print_table_footer(stdout);
+    while(sim->status.vnr < (opt->vnr_end + 0.001) && !sim->cutoff_reached)
+    {
+        rc = simulation_run_vnr(sim, opt, ws);
+        llibcheck(rc == 0, error_c, "simulation_run_vnr failed");
+        rc = sim->vnr_callback(&sim->status, sim->callback_args);
+        llibcheck(rc == 0, error_c, "simulation callback failed");
+        sim->status.vnr += opt->vnr_step;
+    }
 
-    double time_elapsed = difftime(time(NULL), start);
-    sim_print_time_and_speed(stdout, sim->total, sim->total * sim->n, time_elapsed);
+    if(sim->end_callback)
+    {
+        rc = sim->end_callback(&sim->status, sim->callback_args);
+        llibcheck(rc == 0, error_c, "simulation callback failed");
+    }
 
     ret = LT_SUCCESS;
     
-error_d:
-    fclose(sim->outfile);
 error_c:
     CHANNEL_free(sim->channel);
 error_b:
@@ -246,12 +229,11 @@ static size_t is_frame_error(SIM_WS* ws, size_t len, size_t* bit_errs)
     return (errors ? 1 : 0);
 }
 
-static void process_cword(SIMULATOR* sim, SIM_OPTIONS* opt, 
-                        SIM_WS* ws, SIM_STATUS* status)
+static void process_cword(SIMULATOR* sim, SIM_WS* ws, SIM_STATUS* status)
 {
     sim->get_received(sim->channel);
     sim->decode(&ws->v_d.vector, &ws->v_r.vector, sim->basis, sim->alg_ws);
-    status->frame_errs += sim->is_decoding_error(ws, sim->n, &status->bit_errs);
+    status->frame_errs += sim->is_decoding_error(ws, sim->status.n, &status->bit_errs);
     status->frames++;
 }
 
@@ -275,14 +257,14 @@ static void simulation_status_init(SIM_STATUS* status, SIMULATOR* sim)
     status->frames = 0;
     status->frame_errs = 0;
     status->bit_errs = 0;
-    double sigma = sqrt(sim->vol / (sim->rate * pow(10.0, sim->vnr / 10.0)));
-    CHANNEL_set_sigma(sim->channel, sigma);
-    debug("sigma: %f", sigma);
+    status->sigma = sqrt(sim->status.vol / (status->rate * pow(10.0, status->vnr / 10.0)));
+    CHANNEL_set_sigma(sim->channel, status->sigma);
+    debug("sigma: %f", status->sigma);
 }
 
-static int simulation_cutoff_reached(SIMULATOR* sim, SIM_STATUS* status, SIM_OPTIONS* opt)
+static int simulation_cutoff_reached(SIM_STATUS* status, SIM_OPTIONS* opt)
 {
-    const size_t bits = status->frames * sim->n;
+    const size_t bits = status->frames * status->n;
     const double fer = (double) status->frame_errs / status->frames;
     const double ber = (double) status->bit_errs / bits;
     return fer <= opt->frame_err_cutoff || ber <= opt->bit_err_cutoff;
@@ -290,68 +272,54 @@ static int simulation_cutoff_reached(SIMULATOR* sim, SIM_STATUS* status, SIM_OPT
 
 static int simulation_zero_cword_run_vnr(SIMULATOR* sim, SIM_OPTIONS* opt, SIM_WS* ws)
 {
-        SIM_STATUS status;
-        simulation_status_init(&status, sim);
+        SIM_STATUS* status = &sim->status;
+        simulation_status_init(status, sim);
 
-        while(status.frame_errs < opt->min_err)
-            process_cword(sim, opt, ws, &status);
+        while(sim->status.frame_errs < opt->min_err)
+            process_cword(sim, ws, status);
 
-        sim->total += status.frames;
-        sim_print_vnr_result(sim->outfile, sim->vnr, status.frame_errs,
-                            status.bit_errs, status.frames, status.frames * sim->n);
-        sim->cutoff_reached = simulation_cutoff_reached(sim, &status, opt);
+        status->total += status->frames;
+        sim->cutoff_reached = simulation_cutoff_reached(status, opt);
         return 0;
 }
 
 static int simulation_read_cword_run_vnr(SIMULATOR* sim, SIM_OPTIONS* opt, SIM_WS* ws)
 {
-        SIM_STATUS status;
-        simulation_status_init(&status, sim);
+        SIM_STATUS* status = &sim->status;
+        simulation_status_init(status, sim);
 
-        while(status.frame_errs < opt->min_err)
+        while(sim->status.frame_errs < opt->min_err)
         {
-            int rc = read_cword_binary(ws->transmitted, sim->n, sim->dt_size);
+            int rc = read_cword_binary(ws->transmitted, sim->status.n, sim->dt_size);
             libcheck(rc == 0, "read_cword_binary failed");
 
-            process_cword(sim, opt, ws, &status);
+            process_cword(sim, ws, status);
         }
 
-        sim->total += status.frames;
-        sim_print_vnr_result(sim->outfile, sim->vnr, status.frame_errs,
-                            status.bit_errs, status.frames, status.frames * sim->n);
-        sim->cutoff_reached = simulation_cutoff_reached(sim, &status, opt);
+        sim->status.total += sim->status.frames;
+        sim->cutoff_reached = simulation_cutoff_reached(status, opt);
         return 0;
 
 error:
     return -1;
 }
 
-static SIM_WS* SIM_WS_alloc(size_t n, size_t size, int zero_cwords)
+static SIM_WS* SIM_WS_alloc(size_t n, size_t dt_size, int zero_cwords)
 {
     SIM_WS* ws = malloc(sizeof(SIM_WS));
     libcheck_mem(ws);
 
-    ws->decoded = malloc(n * size);
+    const size_t t = zero_cwords ? 2 : 3;
+    ws->decoded = malloc(t * n * dt_size);
     llibcheck_mem(ws->decoded, error_a);
 
-    if(zero_cwords)
-        ws->transmitted = NULL;
-    else
-    {
-        ws->transmitted = malloc(n * size);
-        llibcheck_mem(ws->transmitted, error_b);
-    }
+    ws->received = ws->decoded + n;
+    ws->transmitted = zero_cwords ? NULL : ws->received + n;
 
-    ws->received = malloc(n * sizeof(double));
-    llibcheck_mem(ws->received, error_c);
     ws->v_d = gsl_vector_view_array(ws->decoded, n);
     ws->v_r = gsl_vector_view_array(ws->received, n);
     return ws;
 
-error_c:
-    free(ws->transmitted);
-error_b:
-    free(ws->decoded);
 error_a:
     free(ws);
 error:
@@ -361,11 +329,10 @@ error:
 static void SIM_WS_free(SIM_WS* ws)
 {
     free(ws->decoded);
-    free(ws->transmitted);
-    free(ws->received);
     free(ws);
 }
 
+/*
 static int sim_print_configuration(FILE* file, SIM_OPTIONS* opt, size_t n, 
                                 size_t k, double rate, const char* prefix)
 {
@@ -434,35 +401,6 @@ error:
     return -1;
 }
 
-static int sim_print_table_headers(FILE* file)
-{
-    return fprintf(file, TABLE_VLINE "\n| %-9s| %-13s| %-11s| %-11s| %-17s| %-15s|\n" 
-            TABLE_VLINE "\n", "VNR (dB)", "Frame-errors", "Bit-errors", "Frames", 
-            "Frame-error rate", "Bit-error rate"); 
-}
-
-static int sim_print_table_footer(FILE* file)
-{ return fprintf(file, TABLE_VLINE "\n\n"); }
-
-static int sim_print_vnr_result(FILE* file, double vnr, size_t frame_errs, 
-                        size_t bit_errs, size_t frames, size_t bits)
-{
-    double fer = (double) frame_errs / frames;
-    double ber = (double) bit_errs / bits;
-    int rc =  fprintf(stdout, "|%9.4f |%13zu |%11zu |%11zu |%17.8e |%15.8e |\n", 
-                    vnr, frame_errs, bit_errs, frames, fer, ber); 
-    libcheck(rc >= 0, "printing error");
-
-    rc =  fprintf(file, "%f\t%zu\t%zu\t%zu\t%.8e\t%.8e\n", 
-                    vnr, frame_errs, bit_errs, frames, fer, ber);
-    libcheck(rc >= 0, "printing error");
-    libcheck(fflush(file) == 0, "fflush failed");
-    return 0;
-
-error:
-    return -1;
-}
-
 static int sim_print_time_and_speed(FILE* file, size_t frames, 
                                     size_t bits, double time_elapsed)
 {
@@ -470,6 +408,7 @@ static int sim_print_time_and_speed(FILE* file, size_t frames,
             "Resulting throughput is %f Mb/sec\n", frames, time_elapsed,
             bits / (time_elapsed * 1024 *1024)) > 0 ? 0 : -1;
 }
+*/
 
 static int compute_volume(double* vol, const gsl_matrix* B)
 {
