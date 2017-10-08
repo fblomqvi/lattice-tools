@@ -28,6 +28,7 @@ union value
     long l;
     unsigned long u;
     size_t s;
+    double d;
     const char* str;
     int b;
 };
@@ -38,6 +39,7 @@ enum value_type
     type_long,
     type_ulong,
     type_size,
+    type_dbl,
     type_str,
     type_bool
 };

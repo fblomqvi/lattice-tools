@@ -31,10 +31,12 @@ static int print_vnr_result_file(FILE* file, double vnr, size_t frame_errs,
 static int print_vnr_result_user(FILE* file, double vnr, size_t frame_errs, 
                         size_t bit_errs, size_t frames, size_t bits);
 
-int lat_sim_end_callback(const SIM_STATUS* status, void* args)
+int lat_sim_end_callback(const SIM_STATUS* status __attribute__((__unused__)),
+                        void* args __attribute__((__unused__)))
 { return print_table_footer(stdout); }
 
-int lat_sim_start_callback_std(const SIM_STATUS* status, void* args)
+int lat_sim_start_callback_std(const SIM_STATUS* status __attribute__((__unused__)),
+                                void* args)
 {
     LSC_ARGS* a = (LSC_ARGS*) args;
     int lt_errno = print_table_headers(stdout);
@@ -46,7 +48,8 @@ error:
     return lt_errno;
 }
 
-int lat_sim_start_callback_quiet(const SIM_STATUS* status, void* args)
+int lat_sim_start_callback_quiet(const SIM_STATUS* status __attribute__((__unused__)),
+                                void* args)
 { 
     LSC_ARGS* a = (LSC_ARGS*) args;
     return print_file_headers(a->file); 
@@ -76,7 +79,7 @@ int lat_sim_vnr_callback_quiet(const SIM_STATUS* status, void* args)
 }
 
 static int print_table_footer(FILE* file)
-{ return fprintf(file, TABLE_VLINE "\n\n") > 0 ? LT_SUCCESS : LT_ESYSTEM; }
+{ return fprintf(file, TABLE_VLINE "\n") > 0 ? LT_SUCCESS : LT_ESYSTEM; }
 
 static int print_table_headers(FILE* file)
 {

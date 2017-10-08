@@ -36,9 +36,23 @@ typedef struct s_opt
     char* outfile;
     int transpose;
     int alg;
+    int quiet;
     SIM_OPTIONS sim;
 } OPT;
 
+
+static const OPT OPT_default = {
+    .infile = NULL, .outfile = NULL,
+    .transpose = 1, .alg = ALG_SPHERE_SE,
+    .quiet = 0,
+    .sim = {
+        .min_err = 50, .vnr_begin = 5.0,
+        .vnr_step = 1.0, .vnr_end = 20.0,
+        .seed = 0, .zero_cwords = 1,
+        .bit_err_cutoff = 1E-10,
+        .frame_err_cutoff = 1E-10
+    }
+};
 
 static int print_help(FILE* file)
 {
@@ -49,61 +63,57 @@ static int print_help(FILE* file)
 "  -a, --algorithm=ALG          Select the decoding algorithm. To see a list of all\n"
 "                                 available algorithms give 'list' as argument.\n"
 "                                 The default algorithm is '%s'.\n"
+"  -B, --ber-cutoff=BER         Stop the simulation when the bit error rate drops\n"
+"                                 below BER. The default is %.2e.\n"
+"  -F, --fer-cutoff=FER         Stop the simulation when the frame error rate drops\n"
+"                                 below FER. The default is %.2e.\n"
 "  -E, --min-errors=ERRORS      The minimum number of frame errors per VNR. The default\n"
-"                                 is 50.\n"
+"                                 is %zu.\n"
+"  -q, --quiet                  Supress output.\n"
 "  -r, --rng=RNG                The random number generator to use. To see a list of all\n"
 "                                 available generators give 'list' as argument.\n"
 "  -S, --seed=SEED              The seed for the random number generator.\n"
-"  -e, --vnr-end=END            The final VNR. The default is 20.\n"
-"  -b, --vnr-begin=BEGIN        The initial VNR. The default is 5.\n"
-"  -s, --vnr-step=STEP          The step size used when incrementing the VNR. The\n"
-"                                 default step is 1.0.\n"
-"  -B, --ber-cutoff=BER         Stop the simulation when the bit error rate drops\n"
-"                                 below BER. The default is 1E-10.\n"
-"  -F, --fer-cutoff=FER         Stop the simulation when the frame error rate drops\n"
-"                                 below FER. The default is 1E-10.\n"
 "  -t, --transpose              Transpose the basis read from INPUT.\n"
+"  -e, --vnr-end=END            The final VNR. The default is %.1f.\n"
+"  -b, --vnr-begin=BEGIN        The initial VNR. The default is %.1f.\n"
+"  -s, --vnr-step=STEP          The step size used when incrementing the VNR. The\n"
+"                                 default step is %.1f.\n"
 "      --help                   Display this help and exit.\n"
 "      --version                Output version information and exit.\n";
     
     return (fprintf(file, formatstr, PROGRAM_NAME,
-                algorithm_get_name(ALG_SPHERE_SE)) < 0)
+                algorithm_get_name(ALG_SPHERE_SE),
+                OPT_default.sim.bit_err_cutoff,
+                OPT_default.sim.frame_err_cutoff,
+                OPT_default.sim.min_err,
+                OPT_default.sim.vnr_end,
+                OPT_default.sim.vnr_begin,
+                OPT_default.sim.vnr_step) < 0)
                 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 {
-    static const char* optstring = "a:B:E:F:r:S:e:b:s:tc";
+    static const char* optstring = "a:B:E:F:qr:S:e:b:s:tc";
     static struct option longopt[] = {
         {"algorithm", required_argument, NULL, 'a'},
         {"ber-cutoff", required_argument, NULL, 'B'},
         {"fer-cutoff", required_argument, NULL, 'F'},
         {"min-error", required_argument, NULL, 'E'},
+        {"quiet", no_argument, NULL, 'q'},
         {"rng", required_argument, NULL, 'r'},
         {"seed", required_argument, NULL, 'S'},
+        {"transpose", no_argument, NULL, 't'},
         {"vnr-end", required_argument, NULL, 'e'},
         {"vnr-begin", required_argument, NULL, 'b'},
         {"vnr-step", required_argument, NULL, 's'},
-        {"transpose", no_argument, NULL, 't'},
         {"cwords-from-stdin", no_argument, NULL, 'c'},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'V'},
         {0, 0, 0, 0}
     };
     
-    // Setting default options
-    *opt = (OPT) { 
-        .infile = NULL, .outfile = NULL,
-        .alg = ALG_SPHERE_SE, .transpose = 1
-    };
-    opt->sim = (SIM_OPTIONS) {
-        .min_err = 50, .vnr_begin = 5.0,
-        .vnr_step = 1.0, .vnr_end = 20.0, .seed = 0,
-        .zero_cwords = 1, 
-        .bit_err_cutoff = 1E-10,
-        .frame_err_cutoff = 1E-10,
-        .rng_type = gsl_rng_default
-    };
+    opt->sim.rng_type = gsl_rng_default;
 
     // Parsing the command line
     int ch;
@@ -118,7 +128,8 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 else
                 {
                     opt->alg = algorithm_parse_name(optarg);
-                    check(opt->alg >= 0, "invalid argument to option '%c': '%s'", ch, optarg);
+                    check(opt->alg >= 0, 
+                            "invalid argument to option '%c': '%s'", ch, optarg);
                 }
                 break;
             case 'B':
@@ -173,6 +184,9 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                         && !(errno == ERANGE && opt->sim.vnr_step == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
+            case 'q':
+                opt->quiet = 1;
+                break;
             case 't':
                 opt->transpose = 0;
                 break;
@@ -202,29 +216,32 @@ error:
     exit(EXIT_FAILURE);
 }
 
-/*
 static int print_config(FILE* file, const OPT* opt)
 {
     struct config conf[] = {
-        {"algorithm", (union value) opt->bits, type_size, opt->bits},
-        {"dimension", (union value) opt->par.dimension, type_size, 1},
-        {"exponent", (union value) opt->par.exponent, type_size, opt->par.exponent > 1},
-        {"output-format", (union value) printing_fmt_get_name(opt->format),
-                        type_str, opt->format != PRINTING_FMT_DEFAULT},
-        {"gmp-for-rand", (union value) opt->use_gmp_rand, type_bool, opt->bits < 32},
-        {"min", (union value) opt->min, type_long, opt->min_set},
-        {"max", (union value) opt->max, type_long, opt->max_set},
-        {"rng", (union value) (rng ? gsl_rng_name(rng) : ""), type_str, 
-                        rng != NULL && rng->type != gsl_rng_default},
-        {"seed", (union value) opt->seed, type_ulong, opt->seed != 0},
-        {"transpose", (union value) opt->cols_as_basis, type_bool, 1},
-        {"type", (union value) type_get_name(opt->type), type_str, 1},
+        {"algorithm", (union value) algorithm_get_name(opt->alg),
+            type_str, opt->alg != ALG_SPHERE_SE},
+        {"ber-cutoff", (union value) opt->sim.bit_err_cutoff,
+            type_dbl, opt->sim.bit_err_cutoff != OPT_default.sim.bit_err_cutoff},
+        {"fer-cutoff", (union value) opt->sim.frame_err_cutoff,
+            type_dbl, opt->sim.frame_err_cutoff != OPT_default.sim.frame_err_cutoff},
+        {"min-error", (union value) opt->sim.min_err,
+            type_size, opt->sim.min_err != OPT_default.sim.min_err},
+        {"rng", (union value) opt->sim.rng_type->name,
+            type_str, opt->sim.rng_type != gsl_rng_default},
+        {"seed", (union value) opt->sim.seed, type_ulong, opt->sim.seed != 0},
+        {"vnr-end", (union value) opt->sim.vnr_end,
+            type_dbl, opt->sim.vnr_end != OPT_default.sim.vnr_end},
+        {"vnr-begin", (union value) opt->sim.vnr_begin,
+            type_dbl, opt->sim.vnr_begin != OPT_default.sim.vnr_begin},
+        {"vnr-step", (union value) opt->sim.vnr_step,
+            type_dbl, opt->sim.vnr_step != OPT_default.sim.vnr_step},
+        {"transpose", (union value) !opt->transpose, type_bool, 1},
         {0, (union value) 0, type_bool, 0}
     };
 
     return util_print_genby_and_config(file, PROGRAM_NAME, NULL, NULL, conf);
 }
-*/
 
 static int parse_and_simulate(FILE* file, OPT* opt)
 {
@@ -241,10 +258,23 @@ static int parse_and_simulate(FILE* file, OPT* opt)
     check_se(callback_args.file, lt_errno, LT_ESYSTEM,
             "could not open '%s' for writing", opt->outfile);
 
-    SIMULATOR_set_callbacks(sim, lat_sim_vnr_callback_std,
-                            lat_sim_start_callback_std,
-                            lat_sim_end_callback,
-                            &callback_args);
+    if(opt->quiet)
+    {
+        SIMULATOR_set_callbacks(sim, lat_sim_vnr_callback_quiet,
+                                lat_sim_start_callback_quiet,
+                                NULL,
+                                &callback_args);
+    }
+    else
+    {
+        SIMULATOR_set_callbacks(sim, lat_sim_vnr_callback_std,
+                                lat_sim_start_callback_std,
+                                lat_sim_end_callback,
+                                &callback_args);
+    }
+
+    lt_errno = print_config(callback_args.file, opt);
+    lt_check(lt_errno, "print_config failed");
 
     lt_errno = SIMULATOR_run(sim, &opt->sim);
     SIMULATOR_free(sim);
@@ -260,7 +290,7 @@ error:
 
 int main(int argc, char* argv[])
 {
-    OPT opt;
+    OPT opt = OPT_default;
     int ret = EXIT_FAILURE;
     argv[0] = PROGRAM_NAME = "lat-sim";
 

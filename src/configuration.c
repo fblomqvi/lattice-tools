@@ -88,6 +88,9 @@ static int print_conf_line(FILE* file, struct config* conf)
         case type_size:
             rc = fprintf(file, "# --%s=%zu\n", conf->name, conf->val.s);
             break;
+        case type_dbl:
+            rc = fprintf(file, "# --%s=%e\n", conf->name, conf->val.d);
+            break;
         case type_str:
             rc = fprintf(file, "# --%s=%s\n", conf->name, conf->val.str);
             break;
