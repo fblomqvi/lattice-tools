@@ -21,6 +21,14 @@
 #include "algorithm.h"
 #include <gsl/gsl_rng.h>
 
+enum
+{
+    SIM_CONTINUE = 0,
+    SIM_TERMINATION_VNR = 1,
+    SIM_TERMINATION_BER,
+    SIM_TERMINATION_FER
+};
+
 typedef struct s_simulator SIMULATOR;
 
 typedef struct s_simulator_options
@@ -29,8 +37,8 @@ typedef struct s_simulator_options
     double vnr_begin;
     double vnr_step;
     double vnr_end;
-    double bit_err_cutoff;
-    double frame_err_cutoff;
+    double ser_cutoff;
+    double fer_cutoff;
     unsigned long seed;
     int zero_cwords;
     const gsl_rng_type* rng_type;
@@ -48,6 +56,7 @@ typedef struct s_simulation_status
     double sigma;
     double vnr;
     double vol;
+    int termination_reason;
 } SIM_STATUS;
 
 typedef int (*SimCallback)(const SIM_STATUS*, void*);
@@ -62,6 +71,10 @@ void SIMULATOR_set_callbacks(SIMULATOR* sim,
                             void* args);
 
 void SIMULATOR_free(SIMULATOR* sim);
+
+size_t SIMULATOR_get_dimension(const SIMULATOR* sim);
+size_t SIMULATOR_get_rank(const SIMULATOR* sim);
+double SIMULATOR_get_rate(const SIMULATOR* sim);
 
 int SIMULATOR_run(SIMULATOR* sim, SIM_OPTIONS* opt);
 

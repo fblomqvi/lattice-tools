@@ -29,6 +29,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <math.h>
+#include <time.h>
 
 typedef struct s_opt
 {
@@ -49,8 +50,8 @@ static const OPT OPT_default = {
         .min_err = 50, .vnr_begin = 5.0,
         .vnr_step = 1.0, .vnr_end = 20.0,
         .seed = 0, .zero_cwords = 1,
-        .bit_err_cutoff = 1E-10,
-        .frame_err_cutoff = 1E-10
+        .ser_cutoff = 1E-10,
+        .fer_cutoff = 1E-10
     }
 };
 
@@ -63,8 +64,6 @@ static int print_help(FILE* file)
 "  -a, --algorithm=ALG          Select the decoding algorithm. To see a list of all\n"
 "                                 available algorithms give 'list' as argument.\n"
 "                                 The default algorithm is '%s'.\n"
-"  -B, --ber-cutoff=BER         Stop the simulation when the bit error rate drops\n"
-"                                 below BER. The default is %.2e.\n"
 "  -F, --fer-cutoff=FER         Stop the simulation when the frame error rate drops\n"
 "                                 below FER. The default is %.2e.\n"
 "  -E, --min-errors=ERRORS      The minimum number of frame errors per VNR. The default\n"
@@ -73,6 +72,8 @@ static int print_help(FILE* file)
 "  -r, --rng=RNG                The random number generator to use. To see a list of all\n"
 "                                 available generators give 'list' as argument.\n"
 "  -S, --seed=SEED              The seed for the random number generator.\n"
+"  -B, --ser-cutoff=SER         Stop the simulation when the symbol error rate drops\n"
+"                                 below SER. The default is %.2e.\n"
 "  -t, --transpose              Transpose the basis read from INPUT.\n"
 "  -e, --vnr-end=END            The final VNR. The default is %.1f.\n"
 "  -b, --vnr-begin=BEGIN        The initial VNR. The default is %.1f.\n"
@@ -83,9 +84,9 @@ static int print_help(FILE* file)
     
     return (fprintf(file, formatstr, PROGRAM_NAME,
                 algorithm_get_name(ALG_SPHERE_SE),
-                OPT_default.sim.bit_err_cutoff,
-                OPT_default.sim.frame_err_cutoff,
+                OPT_default.sim.fer_cutoff,
                 OPT_default.sim.min_err,
+                OPT_default.sim.ser_cutoff,
                 OPT_default.sim.vnr_end,
                 OPT_default.sim.vnr_begin,
                 OPT_default.sim.vnr_step) < 0)
@@ -97,12 +98,12 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
     static const char* optstring = "a:B:E:F:qr:S:e:b:s:tc";
     static struct option longopt[] = {
         {"algorithm", required_argument, NULL, 'a'},
-        {"ber-cutoff", required_argument, NULL, 'B'},
         {"fer-cutoff", required_argument, NULL, 'F'},
         {"min-error", required_argument, NULL, 'E'},
         {"quiet", no_argument, NULL, 'q'},
         {"rng", required_argument, NULL, 'r'},
         {"seed", required_argument, NULL, 'S'},
+        {"ser-cutoff", required_argument, NULL, 'B'},
         {"transpose", no_argument, NULL, 't'},
         {"vnr-end", required_argument, NULL, 'e'},
         {"vnr-begin", required_argument, NULL, 'b'},
@@ -133,9 +134,9 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 }
                 break;
             case 'B':
-                opt->sim.bit_err_cutoff = strtod(optarg, &endptr);
-                check(*endptr == '\0' && opt->sim.bit_err_cutoff >= 0
-                        && !(errno == ERANGE && opt->sim.bit_err_cutoff == HUGE_VAL),
+                opt->sim.ser_cutoff = strtod(optarg, &endptr);
+                check(*endptr == '\0' && opt->sim.ser_cutoff >= 0
+                        && !(errno == ERANGE && opt->sim.ser_cutoff == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 'E':
@@ -144,9 +145,9 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 'F':
-                opt->sim.frame_err_cutoff = strtod(optarg, &endptr);
-                check(*endptr == '\0' && opt->sim.frame_err_cutoff >= 0
-                        && !(errno == ERANGE && opt->sim.frame_err_cutoff == HUGE_VAL),
+                opt->sim.fer_cutoff = strtod(optarg, &endptr);
+                check(*endptr == '\0' && opt->sim.fer_cutoff >= 0
+                        && !(errno == ERANGE && opt->sim.fer_cutoff == HUGE_VAL),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             case 'r':
@@ -221,15 +222,15 @@ static int print_config(FILE* file, const OPT* opt)
     struct config conf[] = {
         {"algorithm", (union value) algorithm_get_name(opt->alg),
             type_str, opt->alg != ALG_SPHERE_SE},
-        {"ber-cutoff", (union value) opt->sim.bit_err_cutoff,
-            type_dbl, opt->sim.bit_err_cutoff != OPT_default.sim.bit_err_cutoff},
-        {"fer-cutoff", (union value) opt->sim.frame_err_cutoff,
-            type_dbl, opt->sim.frame_err_cutoff != OPT_default.sim.frame_err_cutoff},
+        {"fer-cutoff", (union value) opt->sim.fer_cutoff,
+            type_dbl, opt->sim.fer_cutoff != OPT_default.sim.fer_cutoff},
         {"min-error", (union value) opt->sim.min_err,
             type_size, opt->sim.min_err != OPT_default.sim.min_err},
         {"rng", (union value) opt->sim.rng_type->name,
             type_str, opt->sim.rng_type != gsl_rng_default},
         {"seed", (union value) opt->sim.seed, type_ulong, opt->sim.seed != 0},
+        {"ser-cutoff", (union value) opt->sim.ser_cutoff,
+            type_dbl, opt->sim.ser_cutoff != OPT_default.sim.ser_cutoff},
         {"vnr-end", (union value) opt->sim.vnr_end,
             type_dbl, opt->sim.vnr_end != OPT_default.sim.vnr_end},
         {"vnr-begin", (union value) opt->sim.vnr_begin,
@@ -243,20 +244,50 @@ static int print_config(FILE* file, const OPT* opt)
     return util_print_genby_and_config(file, PROGRAM_NAME, NULL, NULL, conf);
 }
 
-static int parse_and_simulate(FILE* file, OPT* opt)
+static int print_info(FILE* file, const SIMULATOR* sim, const OPT* opt)
+{
+    const char* formatstr =
+        "\nDecoding simulations with lattices\n"
+        "VNR (dB) from %.2f to %.2f in increments of %.2f\n"
+        "%zu frame errors awaited per VNR\n"
+        "Symbol error rate cutoff: %.2e\n"
+        "Frame error rate cutoff: %.2e\n"
+        "Lattice parameters:\n"
+        "  dimension: %zu\n"
+        "  rank: %zu\n"
+        "  rate: %.4f\n"
+        "Decoding algorithm: %s\n"
+        "RNG: %s\n"
+        "Seed: %lu\n\n";
+
+    int rc = fprintf(file, formatstr,
+        opt->sim.vnr_begin, opt->sim.vnr_end, opt->sim.vnr_step,
+        opt->sim.min_err, opt->sim.ser_cutoff, 
+        opt->sim.fer_cutoff,
+        SIMULATOR_get_dimension(sim), SIMULATOR_get_rank(sim),
+        SIMULATOR_get_rate(sim),
+        algorithm_get_name(opt->alg), 
+        opt->sim.rng_type->name, opt->sim.seed);
+
+    return rc > 0 ? LT_SUCCESS : LT_ESYSTEM;
+}
+
+static int parse_and_simulate(FILE* infile, FILE* outfile, OPT* opt)
 {
     int lt_errno = LT_FAILURE;
-    gsl_matrix* basis = parse_fpLLL_matrix(file, opt->transpose);
+    LSC_ARGS callback_args = { .ui = stdout, .file = outfile };
+
+    gsl_matrix* basis = parse_fpLLL_matrix(infile, opt->transpose);
     check(basis, "error when processing input file '%s'", opt->infile);
 
     SIMULATOR* sim; 
     lt_errno = SIMULATOR_from_basis(&sim, basis, opt->alg);
     lt_lcheck(lt_errno, error_a, "SIMULATOR_from_basis failed");
 
-    LSC_ARGS callback_args;
-    callback_args.file = fopen(opt->outfile, "w");
     check_se(callback_args.file, lt_errno, LT_ESYSTEM,
             "could not open '%s' for writing", opt->outfile);
+
+    opt->sim.seed = opt->sim.seed ? opt->sim.seed : (unsigned long) time(NULL) + clock();
 
     if(opt->quiet)
     {
@@ -271,6 +302,8 @@ static int parse_and_simulate(FILE* file, OPT* opt)
                                 lat_sim_start_callback_std,
                                 lat_sim_end_callback,
                                 &callback_args);
+        lt_errno = print_info(callback_args.ui, sim, opt);
+        lt_check(lt_errno, "print_info failed");
     }
 
     lt_errno = print_config(callback_args.file, opt);
@@ -300,10 +333,15 @@ int main(int argc, char* argv[])
     FILE* infile = fopen(opt.infile, "r");
     check(infile, "Could not open '%s'", opt.infile);
 
-    int rc = parse_and_simulate(infile, &opt);
-    llibcheck(rc == 0, error_a, "parse_and_simulate failed");
+    FILE* outfile = fopen(opt.outfile, "w");
+    lcheck(outfile, error_a, "Could not open '%s'", opt.outfile);
+
+    int rc = parse_and_simulate(infile, outfile, &opt);
+    llibcheck(rc == 0, error_b, "parse_and_simulate failed");
     ret = EXIT_SUCCESS;
 
+error_b:
+    fclose(outfile);
 error_a:
     fclose(infile);
 error:

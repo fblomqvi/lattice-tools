@@ -22,6 +22,7 @@
 
 typedef struct s_lat_sim_callback_args
 {
+    FILE* ui;
     FILE* file;
 } LSC_ARGS;
 
