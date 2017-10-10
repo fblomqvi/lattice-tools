@@ -20,6 +20,8 @@
 
 #include <gsl/gsl_rng.h>
 
+unsigned long get_random_seed(void);
+
 const gsl_rng_type* get_rng_type(const char* rng_name, const gsl_rng_type** rng_types);
 
 int print_rngs(FILE* file, const gsl_rng_type** rng_types);

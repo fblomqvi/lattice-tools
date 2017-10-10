@@ -18,6 +18,21 @@
 #include "dbg.h"
 #include "rng.h"
 #include <string.h>
+#include <time.h>
+
+unsigned long get_random_seed(void)
+{
+    struct timespec tp;
+    int rc = clock_gettime(CLOCK_REALTIME, &tp);
+    libcheck(rc == 0, "clock_gettime failed");
+    srand(tp.tv_sec + tp.tv_nsec);
+    return rand();
+
+error:
+    // Lower resolution option if CLOCK_REALTIME is not available
+    srand(time(NULL));
+    return rand();
+}
 
 const gsl_rng_type* get_rng_type(const char* rng_name, const gsl_rng_type** rng_types)
 {

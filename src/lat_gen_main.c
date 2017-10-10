@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdarg.h>
-#include <time.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -108,7 +107,7 @@ static int gen_and_print(FILE* file, OPT* opt)
     if(lattice_gen_type_needs_rng(opt->type))
     {
         // Check if we should use gmp for randomness.
-        opt->seed = opt->seed ? opt->seed : (unsigned long) time(NULL) + clock();
+        opt->seed = opt->seed ? opt->seed : get_random_seed();
     
         if(!opt->use_gmp_rand)
         {

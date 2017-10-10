@@ -374,7 +374,7 @@ static int generate_standard(FILE* outfile, RP_OPT* opt)
     double* cword = malloc(opt->cword_len * sizeof(double));
     check_mem(cword);
 
-    opt->seed = opt->seed ? opt->seed : (unsigned long) time(NULL) + clock();
+    opt->seed = opt->seed ? opt->seed : get_random_seed();
     gsl_rng* rng = rng_alloc_and_seed(opt->rng_type, opt->seed);
     lcheck_mem(rng, error_a);
 
@@ -428,7 +428,7 @@ static int generate_with_basis(FILE* outfile, RP_OPT* opt)
 
     gsl_matrix_view m_Q1 = gsl_matrix_submatrix(&m_Q.matrix, 0, 0, n, m);
 
-    opt->seed = opt->seed ? opt->seed : (unsigned long) time(NULL) + clock();
+    opt->seed = opt->seed ? opt->seed : get_random_seed();
     gsl_rng* rng = rng_alloc_and_seed(opt->rng_type, opt->seed);
     lcheck_mem(rng, error_a);
 

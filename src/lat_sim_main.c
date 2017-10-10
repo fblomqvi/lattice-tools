@@ -29,7 +29,6 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <math.h>
-#include <time.h>
 
 typedef struct s_opt
 {
@@ -287,7 +286,7 @@ static int parse_and_simulate(FILE* infile, FILE* outfile, OPT* opt)
     check_se(callback_args.file, lt_errno, LT_ESYSTEM,
             "could not open '%s' for writing", opt->outfile);
 
-    opt->sim.seed = opt->sim.seed ? opt->sim.seed : (unsigned long) time(NULL) + clock();
+    opt->sim.seed = opt->sim.seed ? opt->sim.seed : get_random_seed();
 
     if(opt->quiet)
     {
