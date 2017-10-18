@@ -21,6 +21,7 @@
 #include "rnd_point.h"
 #include "parse.h"
 #include "print_util.h"
+#include "utility.h"
 #include <getopt.h>
 #include <errno.h>
 #include <string.h>
@@ -362,10 +363,10 @@ static int set_range(int custom_range, gsl_rng* rng, RP_OPT* opt)
         opt->max = gsl_rng_max(rng);
     }
 
-    return 0;
+    return LT_SUCCESS;
 
 error:
-    return -1;
+    return LT_EINVAL;
 }
 
 static int generate_standard(FILE* outfile, RP_OPT* opt)
@@ -401,40 +402,42 @@ error:
 
 static int generate_with_basis(FILE* outfile, RP_OPT* opt)
 {
-    int ret = -1;
-    size_t n = opt->basis->size1;
-    size_t m = opt->basis->size2;
-    assert(n >= m);
+    int lt_errno = LT_SUCCESS;
+    const gsl_matrix* B = opt->basis;
+    const size_t n = B->size1;
+    const size_t m = B->size2;
+    check_se(n >= m, lt_errno, LT_EINVAL,
+            "the basis vectors are not linearly independent");
 
-    size_t tausize = (n < m) ? n : m;
-    size_t Q_size = n * n;
-    size_t R_size = n * m;
-    double* data = malloc((Q_size + R_size + tausize + n + m) * sizeof(double));
-    check_mem(data);
+    const size_t Q_size = n * n;
+    const size_t R_size = n * m;
+    double* data = malloc((Q_size + R_size + n + m) * sizeof(double));
+    check_se_mem(data, lt_errno, LT_ESYSTEM);
 
-    double* tau = data + Q_size + R_size;
-    double* r = tau + tausize;
+    double* r = data + Q_size + R_size;
     double* x = r + n;
 
     gsl_vector_view v_r = gsl_vector_view_array(r, n);
     gsl_vector_view v_x = gsl_vector_view_array(x, m);
-    gsl_vector_view v_tau = gsl_vector_view_array(tau, tausize);
 
     gsl_matrix_view m_Q = gsl_matrix_view_array(data, n, n);
     gsl_matrix_view m_R = gsl_matrix_view_array(data + Q_size, n, m);
 
-    gsl_linalg_QR_decomp(opt->basis, &v_tau.vector);
-    gsl_linalg_QR_unpack(opt->basis, &v_tau.vector, &m_Q.matrix, &m_R.matrix);
-
+    lt_errno = utility_compute_QR_decomposition(&m_Q.matrix, &m_R.matrix, B);
+    lt_lcheck(lt_errno, error_a, "utility_compute_QR_decomposition failed");
+    int rc = utility_Rmm_is_not_singular(&m_R.matrix, 10E-10);
+    lcheck_se(rc, error_a, lt_errno, LT_EINVAL,
+            "the basis vectors are not linearly independent");
     gsl_matrix_view m_Q1 = gsl_matrix_submatrix(&m_Q.matrix, 0, 0, n, m);
 
     opt->seed = opt->seed ? opt->seed : get_random_seed();
     gsl_rng* rng = rng_alloc_and_seed(opt->rng_type, opt->seed);
-    lcheck_mem(rng, error_a);
+    lcheck_se_mem(data, error_a, lt_errno, GSL_ENOMEM);
 
     int custom_range = (opt->min_set || opt->max_set);
     opt->get_point_switch = custom_range + 8 * opt->sloppy;
-    llibcheck(set_range(custom_range, rng, opt) == 0, error_b, "set_range failed");
+    lt_errno = set_range(custom_range, rng, opt);
+    lt_llibcheck(lt_errno, error_b, "set_range failed");
 
     const PRINTING_FMT* fmt = printing_fmt_get(opt->format);
     opt->cword_len = m;
@@ -442,16 +445,16 @@ static int generate_with_basis(FILE* outfile, RP_OPT* opt)
     do {
         get_point(x, rng, opt);
         gsl_blas_dgemv(CblasNoTrans, 1, &m_Q1.matrix, &v_x.vector, 0, &v_r.vector);
-        lcheck(opt->print_point(outfile, r, n, fmt) == 0, error_b, "print_point failed");
+        lt_errno = opt->print_point(outfile, r, n, fmt);
+        lt_lcheck(lt_errno, error_b, "print_point failed");
     } while(!opt->cword_num || ++i < opt->cword_num);
-    ret = 0;
 
 error_b:
     gsl_rng_free(rng);
 error_a:
     free(data);
 error:
-    return ret;
+    return lt_errno;
 }
 
 static int print_conf_binary(FILE* file, RP_OPT* opt)
