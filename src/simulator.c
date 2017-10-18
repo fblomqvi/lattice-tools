@@ -16,6 +16,7 @@
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
+#include "defs.h"
 #include "simulator.h"
 #include "channel.h"
 #include "rng.h"
@@ -24,8 +25,6 @@
 #include <gsl/gsl_permutation.h>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
-
-#define EPSILON 10E-10
 
 typedef struct s_decoder_workspace
 {
@@ -211,7 +210,7 @@ static size_t is_not_zero_codeword(SIM_WS* ws, size_t len, size_t* bit_errs)
     double* cword = ws->decoded;
     size_t errors = 0; 
     for(size_t i = 0; i < len; i++)
-        if(fabs(cword[i]) > EPSILON) 
+        if(fabs(cword[i]) > EPSILON_EQUAL) 
             errors++;
 
     *bit_errs += errors;
@@ -224,7 +223,7 @@ static size_t is_frame_error(SIM_WS* ws, size_t len, size_t* bit_errs)
     double* transmitted = ws->transmitted;
     size_t errors = 0;
     for(size_t i = 0; i < len; i++)
-        if(fabs(cword[i] - transmitted[i]) > EPSILON)
+        if(fabs(cword[i] - transmitted[i]) > EPSILON_EQUAL)
             errors++;
 
     *bit_errs += errors;
@@ -266,7 +265,7 @@ static void simulation_status_init(SIM_STATUS* status, SIMULATOR* sim)
 
 static int simulation_termination_status(SIM_STATUS* status, SIM_OPTIONS* opt)
 {
-    if(status->vnr > (opt->vnr_end + EPSILON))
+    if(status->vnr > (opt->vnr_end + EPSILON_EQUAL))
         return SIM_TERMINATION_VNR;
     if((double) status->frame_errs / status->frames <= opt->fer_cutoff)
         return SIM_TERMINATION_FER;

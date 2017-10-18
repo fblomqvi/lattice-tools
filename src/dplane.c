@@ -16,6 +16,7 @@
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
+#include "defs.h"
 #include "utility.h"
 #include "lt_errno.h"
 #include <math.h>
@@ -72,7 +73,7 @@ int DP_WS_alloc_and_init(DP_WS** ws_ptr, const gsl_matrix *B)
 
     lt_errno = utility_compute_QR_decomposition(Q, R, B);
     lt_llibcheck(lt_errno, error_b, "utility_compute_QR_decomposition failed");
-    int rc = utility_Rmm_is_not_singular(R, 10E-10);
+    int rc = utility_Rmm_is_not_singular(R, EPSILON_SINGULAR);
     llibcheck_se(rc, error_b, lt_errno, LT_EINVAL,
             "the basis vectors are not linearly independent");
 

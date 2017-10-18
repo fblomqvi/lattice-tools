@@ -16,6 +16,7 @@
    Written by Ferdinand Blomqvist and Juuso Korvuo. */
 
 #include "dbg.h"
+#include "defs.h"
 #include "sphere_pohst.h"
 #include "utility.h"
 #include "lt_errno.h"
@@ -92,7 +93,7 @@ int SD_WS_alloc_and_init(SD_WS** ws_ptr, const gsl_matrix* B)
 
     lt_errno = utility_compute_QR_decomposition(ws->Q, ws->R, B);
     lt_llibcheck(lt_errno, error_b, "utility_compute_QR_decomposition failed");
-    int rc = utility_Rmm_is_not_singular(ws->R, 10E-10);
+    int rc = utility_Rmm_is_not_singular(ws->R, EPSILON_SINGULAR);
     llibcheck_se(rc, error_b, lt_errno, LT_EINVAL,
             "the basis vectors are not linearly independent");
 

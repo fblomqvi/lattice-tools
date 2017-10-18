@@ -17,6 +17,7 @@
 
 #include "dbg.h"
 #include "lt_errno.h"
+#include "defs.h"
 #include "version.h"
 #include "rng.h"
 #include "rnd_point.h"
@@ -33,8 +34,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <gsl/gsl_errno.h>
-
-#define EPSILON 10E-10
 
 typedef enum enum_mode
 {
@@ -330,7 +329,7 @@ error:
 static int solutions_not_equal(double* a, double* b, size_t len)
 {
     for(size_t i = 0; i < len; i++)
-        if(fabs(a[i] - b[i]) > EPSILON)
+        if(fabs(a[i] - b[i]) > EPSILON_EQUAL)
             return 1;
 
     return 0;

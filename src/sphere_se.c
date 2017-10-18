@@ -17,6 +17,7 @@
 
 #include "dbg.h"
 #include "lt_errno.h"
+#include "defs.h"
 #include "sphere_se.h"
 #include "utility.h"
 #include <stdio.h>
@@ -76,7 +77,7 @@ int SDSE_WS_alloc_and_init(SDSE_WS** ws_ptr, const gsl_matrix* B)
 
     lt_errno = utility_compute_QR_decomposition(ws->Q, ws->R, B);
     lt_llibcheck(lt_errno, error_b, "utility_compute_QR_decomposition failed");
-    int rc = utility_Rmm_is_not_singular(ws->R, 10E-10);
+    int rc = utility_Rmm_is_not_singular(ws->R, EPSILON_SINGULAR);
     llibcheck_se(rc, error_b, lt_errno, LT_EINVAL,
             "the basis vectors are not linearly independent");
 
