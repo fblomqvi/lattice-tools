@@ -48,7 +48,7 @@ int SDSE_WS_alloc_and_init(SDSE_WS** ws_ptr, const gsl_matrix* B)
     int lt_errno = LT_SUCCESS;
     const size_t n = B->size1;
     const size_t m = B->size2;
-    libcheck_se(n >= m, lt_errno, LT_EINVAL, 
+    libcheck_se(n >= m, lt_errno, LT_EINVAL,
             "the basis vectors are not linearly independent");
 
     SDSE_WS* ws = malloc(sizeof(SDSE_WS));
@@ -77,7 +77,7 @@ int SDSE_WS_alloc_and_init(SDSE_WS** ws_ptr, const gsl_matrix* B)
     lt_errno = utility_compute_QR_decomposition(ws->Q, ws->R, B);
     lt_llibcheck(lt_errno, error_b, "utility_compute_QR_decomposition failed");
     int rc = utility_Rmm_is_not_singular(ws->R, 10E-10);
-    llibcheck_se(rc, error_b, lt_errno, LT_EINVAL, 
+    llibcheck_se(rc, error_b, lt_errno, LT_EINVAL,
             "the basis vectors are not linearly independent");
 
     ws->Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
