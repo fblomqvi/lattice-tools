@@ -43,8 +43,8 @@ struct s_dp_ws
 int DP_WS_alloc_and_init(DP_WS** ws_ptr, const gsl_matrix *B)
 {
     int lt_errno = LT_SUCCESS;
-    size_t n = B->size1;
-    size_t m = B->size2;
+    const size_t n = B->size1;
+    const size_t m = B->size2;
     libcheck_se(n >= m, lt_errno, LT_EINVAL, 
             "the basis vectors are not linearly independent");
 
@@ -52,8 +52,8 @@ int DP_WS_alloc_and_init(DP_WS** ws_ptr, const gsl_matrix *B)
     libcheck_se_mem(ws, lt_errno, LT_ESYSTEM);
 
     ws->m = m;
-    size_t Q_size = n * n;
-    size_t R_size = n * m;
+    const size_t Q_size = n * n;
+    const size_t R_size = n * m;
     ws->data = malloc((Q_size + R_size + 3 * m) * sizeof(double));
     llibcheck_se_mem(ws->data, error_a, lt_errno, LT_ESYSTEM);
 

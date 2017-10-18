@@ -61,16 +61,16 @@ static void step_5b(SD_WS* ws, size_t* k);
 int SD_WS_alloc_and_init(SD_WS** ws_ptr, const gsl_matrix* B)
 {
     int lt_errno = LT_SUCCESS;
-    size_t n = B->size1;
-    size_t m = B->size2;
+    const size_t n = B->size1;
+    const size_t m = B->size2;
     libcheck_se(n >= m, lt_errno, LT_EINVAL, 
             "the basis vectors are not linearly independent");
 
     SD_WS* ws = malloc(sizeof(SD_WS));
     libcheck_se_mem(ws, lt_errno, LT_ESYSTEM);
 
-    size_t Q_size = n * n;
-    size_t R_size = n * m;
+    const size_t Q_size = n * n;
+    const size_t R_size = n * m;
     ws->data = malloc((Q_size + R_size + 6 * m) * sizeof(double));
     llibcheck_se_mem(ws->data, error_a, lt_errno, LT_ESYSTEM);
 
