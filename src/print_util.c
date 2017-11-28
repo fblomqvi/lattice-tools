@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License along with
    this program. If not, see <http://www.gnu.org/licenses/>.
-   
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -85,7 +85,7 @@ error:
     return LT_FAILURE;
 }
 
-int print_dvector_binary(FILE* file, const double* vec, size_t vec_len, 
+int print_dvector_binary(FILE* file, const double* vec, size_t vec_len,
                         const PRINTING_FMT* fmt __attribute__((__unused__)))
 { return fwrite(vec, sizeof(double), vec_len, file) == vec_len ? 0 : -1; }
 
@@ -125,13 +125,13 @@ error:
     return LT_FAILURE;
 }
 
-int print_lvector_binary(FILE* file, const long* vec, size_t vec_len, 
+int print_lvector_binary(FILE* file, const long* vec, size_t vec_len,
                         const PRINTING_FMT* fmt __attribute__((__unused__)))
 { return fwrite(vec, sizeof(long), vec_len, file) == vec_len ? 0 : -1; }
 
 int print_lvector_binary_float(FILE* file, const long* vec, size_t vec_len,
                         const PRINTING_FMT* fmt __attribute__((__unused__)))
-{ 
+{
     size_t buf_size = vec_len < 1024 ? vec_len : 1024;
     size_t left = vec_len;
     double buffer[buf_size];
@@ -142,7 +142,7 @@ int print_lvector_binary_float(FILE* file, const long* vec, size_t vec_len,
         for(size_t i = 0; i < write_size; i++)
             buffer[i] = (double) vec[i];
 
-        libcheck(fwrite(buffer, sizeof(double), write_size, file) 
+        libcheck(fwrite(buffer, sizeof(double), write_size, file)
                 == write_size, "fwrite failed");
         left -= write_size;
     }

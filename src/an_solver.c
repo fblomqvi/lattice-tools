@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -75,7 +75,7 @@ void AN_solve(long* clp, double* recv, AN_WS* ws)
         debug("recv[%zu]: %f", i, recv[i]);
     }
 
-   AN_solve_np(clp, recv, ws); 
+   AN_solve_np(clp, recv, ws);
 }
 
 void AN_solve_np(long* clp, double* recv, AN_WS* ws)
@@ -93,11 +93,11 @@ void AN_solve_np(long* clp, double* recv, AN_WS* ws)
     debug("Delta: %ld", Delta);
     if(Delta == 0)
         return;
-        
-    // Initialize the array that will be sorted 
+
+    // Initialize the array that will be sorted
     for(size_t i = 0; i < ws->size; i++)
         ws->idxs[i] = i;
-    
+
     // Sort the array
     qsort_r(ws->idxs, ws->size, sizeof(size_t), cmp, ws->delta);
 

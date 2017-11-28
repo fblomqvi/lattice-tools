@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #ifndef FB_VECTOR_MPZ_H
@@ -55,7 +55,7 @@ void VEC_MPZ_do_op3(t_VEC_MPZ* r, const t_VEC_MPZ* a, const mpz_t b,
 int VEC_MPZ_equal(t_VEC_MPZ* a, t_VEC_MPZ* b);
 
 // Calculates r = <a,b>
-static inline void VEC_MPZ_dot_size(mpz_t r, const t_VEC_MPZ* a, 
+static inline void VEC_MPZ_dot_size(mpz_t r, const t_VEC_MPZ* a,
                                     const t_VEC_MPZ* b, size_t len)
 {
     assert(a->size >= len && b->size >= len);
@@ -66,7 +66,7 @@ static inline void VEC_MPZ_dot_size(mpz_t r, const t_VEC_MPZ* a,
 
 // Calculates r = <a,b>
 static inline void VEC_MPZ_dot(mpz_t r, const t_VEC_MPZ* a, const t_VEC_MPZ* b)
-{ 
+{
     assert(a->size == b->size);
     VEC_MPZ_dot_size(r, a, b, a->size);
 }

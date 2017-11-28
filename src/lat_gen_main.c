@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -36,7 +36,7 @@
 #define LNAME_TYPE_RANDOM "R"
 #define LNAME_TYPE_SPC "SPC"
 
-typedef struct s_options 
+typedef struct s_options
 {
     char* output;
     const gsl_rng_type* rng_type;
@@ -108,7 +108,7 @@ static int gen_and_print(FILE* file, OPT* opt)
     {
         // Check if we should use gmp for randomness.
         opt->seed = opt->seed ? opt->seed : get_random_seed();
-    
+
         if(!opt->use_gmp_rand)
         {
             opt->par.rng = rng_alloc_and_seed(opt->rng_type, opt->seed);
@@ -138,7 +138,7 @@ static int gen_and_print(FILE* file, OPT* opt)
     else
         M = lattice_gen(opt->type, &opt->par);
     check(M, "lattice_gen failed");
-    
+
     MAT_MPZ_print(file, M, opt->cols_as_basis, printing_fmt_get(opt->format));
     MAT_MPZ_free(M);
     gsl_rng_free(opt->par.rng);
@@ -247,7 +247,7 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
             case 'S':
             {
                 opt->seed = strtoul(optarg, &endptr, 10);
-                check(*endptr == '\0' && !(errno == ERANGE && opt->seed == ULONG_MAX), 
+                check(*endptr == '\0' && !(errno == ERANGE && opt->seed == ULONG_MAX),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             }
@@ -294,11 +294,11 @@ error:
 
 static int print_help(FILE* file)
 {
-    static const char* formatstr = 
+    static const char* formatstr =
 "Usage: %s [OPTION]...\n"
 "  or:  %s [OPTION]... OUTPUT\n\n%s\n";
 
-    static const char* helpstr = 
+    static const char* helpstr =
 "Generates integer lattices of the given type. Outputs a basis matrix (with the rows\n"
 "as basis vectors) for the generated lattice. The outputs is written to stdout if no\n"
 "output file is given.\n\n"
@@ -335,8 +335,8 @@ static int print_help(FILE* file)
 "the range of the matrix entries. If the user gives options from both categories,\n"
 "then the one specified last takes precedence.\n\n"
 "See the man page for further details.";
-    
-    return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0) 
+
+    return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0)
                 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
@@ -351,7 +351,7 @@ static int print_config(FILE* file, const OPT* opt, gsl_rng* rng)
         {"gmp-for-rand", (union value) opt->use_gmp_rand, type_bool, opt->bits < 32},
         {"min", (union value) opt->min, type_long, opt->min_set},
         {"max", (union value) opt->max, type_long, opt->max_set},
-        {"rng", (union value) (rng ? gsl_rng_name(rng) : ""), type_str, 
+        {"rng", (union value) (rng ? gsl_rng_name(rng) : ""), type_str,
                         rng != NULL && rng->type != gsl_rng_default},
         {"seed", (union value) opt->seed, type_ulong, opt->seed != 0},
         {"transpose", (union value) opt->cols_as_basis, type_bool, 1},

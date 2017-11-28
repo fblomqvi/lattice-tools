@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -87,7 +87,7 @@ int SIMULATOR_from_basis(SIMULATOR** sim_ptr, gsl_matrix* basis, Algorithm alg)
     sim->status.n =  basis->size1;
     sim->status.m = basis->size2;
     sim->status.rate = (double) sim->status.m / sim->status.n;
-    
+
     lt_errno = compute_volume(&sim->status.vol, basis);
     lt_llibcheck(lt_errno, error_b, "compute_volume failed");
 
@@ -108,8 +108,8 @@ error:
     return lt_errno;
 }
 
-void SIMULATOR_set_callbacks(SIMULATOR* sim, 
-                            SimCallback vnr_callback, 
+void SIMULATOR_set_callbacks(SIMULATOR* sim,
+                            SimCallback vnr_callback,
                             SimCallback start_callback,
                             SimCallback end_callback,
                             void* args)
@@ -153,8 +153,8 @@ int SIMULATOR_run(SIMULATOR* sim, SIM_OPTIONS* opt)
 
     init_function_pointers(sim, opt);
 
-    int (*simulation_run_vnr)(SIMULATOR*, SIM_OPTIONS*, SIM_WS*) 
-        = opt->zero_cwords 
+    int (*simulation_run_vnr)(SIMULATOR*, SIM_OPTIONS*, SIM_WS*)
+        = opt->zero_cwords
         ? simulation_zero_cword_run_vnr : simulation_read_cword_run_vnr;
 
     sim->status.vnr = opt->vnr_begin;
@@ -185,7 +185,7 @@ int SIMULATOR_run(SIMULATOR* sim, SIM_OPTIONS* opt)
     }
 
     ret = LT_SUCCESS;
-    
+
 error_c:
     CHANNEL_free(sim->channel);
 error_b:
@@ -198,9 +198,9 @@ error:
 
 static void init_function_pointers(SIMULATOR* sim, SIM_OPTIONS* opt)
 {
-    sim->get_received = opt->zero_cwords ? 
+    sim->get_received = opt->zero_cwords ?
         channel_get_zero_cword_AWGN : channel_get_cword_AWGN;
-    sim->is_decoding_error = opt->zero_cwords ? 
+    sim->is_decoding_error = opt->zero_cwords ?
             is_not_zero_codeword : is_frame_error;
 }
 
@@ -208,9 +208,9 @@ static void init_function_pointers(SIMULATOR* sim, SIM_OPTIONS* opt)
 static size_t is_not_zero_codeword(SIM_WS* ws, size_t len, size_t* bit_errs)
 {
     double* cword = ws->decoded;
-    size_t errors = 0; 
+    size_t errors = 0;
     for(size_t i = 0; i < len; i++)
-        if(fabs(cword[i]) > EPSILON_EQUAL) 
+        if(fabs(cword[i]) > EPSILON_EQUAL)
             errors++;
 
     *bit_errs += errors;

@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -93,23 +93,23 @@ error:
     return lt_errno;
 }
 
-void DP_WS_free(DP_WS *ws) 
+void DP_WS_free(DP_WS *ws)
 {
-    if (ws) 
+    if (ws)
     {
         free(ws->data);
         free(ws);
     }
 }
 
-static double calc_yhat(size_t k, const gsl_matrix* R, 
-                        const double* y, const double* s) 
+static double calc_yhat(size_t k, const gsl_matrix* R,
+                        const double* y, const double* s)
 {
     size_t m = R->size2;
     double sum = y[k];
     for (size_t j = k+1; j < m; j++)
         sum -= gsl_matrix_get(R, k, j) * s[j];
-    
+
     return sum;
 }
 

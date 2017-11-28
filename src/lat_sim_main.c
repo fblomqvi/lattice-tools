@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -56,7 +56,7 @@ static const OPT OPT_default = {
 
 static int print_help(FILE* file)
 {
-    static const char* formatstr = 
+    static const char* formatstr =
 "Usage: %s [OPTION]... INPUT OUTPUT\n\n"
 "Decoding simulations for lattices. The basis of the lattice is read from INPUT.\n\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
@@ -80,7 +80,7 @@ static int print_help(FILE* file)
 "                                 default step is %.1f.\n"
 "      --help                   Display this help and exit.\n"
 "      --version                Output version information and exit.\n";
-    
+
     return (fprintf(file, formatstr, PROGRAM_NAME,
                 algorithm_get_name(ALG_SPHERE_SE),
                 OPT_default.sim.fer_cutoff,
@@ -112,7 +112,7 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
         {"version", no_argument, NULL, 'V'},
         {0, 0, 0, 0}
     };
-    
+
     opt->sim.rng_type = gsl_rng_default;
 
     // Parsing the command line
@@ -128,7 +128,7 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
                 else
                 {
                     opt->alg = algorithm_parse_name(optarg);
-                    check(opt->alg >= 0, 
+                    check(opt->alg >= 0,
                             "invalid argument to option '%c': '%s'", ch, optarg);
                 }
                 break;
@@ -261,11 +261,11 @@ static int print_info(FILE* file, const SIMULATOR* sim, const OPT* opt)
 
     int rc = fprintf(file, formatstr,
         opt->sim.vnr_begin, opt->sim.vnr_end, opt->sim.vnr_step,
-        opt->sim.min_err, opt->sim.ser_cutoff, 
+        opt->sim.min_err, opt->sim.ser_cutoff,
         opt->sim.fer_cutoff,
         SIMULATOR_get_dimension(sim), SIMULATOR_get_rank(sim),
         SIMULATOR_get_rate(sim),
-        algorithm_get_name(opt->alg), 
+        algorithm_get_name(opt->alg),
         opt->sim.rng_type->name, opt->sim.seed);
 
     return rc > 0 ? LT_SUCCESS : LT_ESYSTEM;
@@ -279,7 +279,7 @@ static int parse_and_simulate(FILE* infile, FILE* outfile, OPT* opt)
     gsl_matrix* basis = parse_fpLLL_matrix(infile, opt->transpose);
     check(basis, "error when processing input file '%s'", opt->infile);
 
-    SIMULATOR* sim; 
+    SIMULATOR* sim;
     lt_errno = SIMULATOR_from_basis(&sim, basis, opt->alg);
     lt_lcheck(lt_errno, error_a, "SIMULATOR_from_basis failed");
 

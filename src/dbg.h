@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 /* These debug macros are inspired by the debug macros found in chapter 20 of
@@ -109,7 +109,7 @@ void fprintf_we_lt(FILE* file, const int lt_errno, const char* format, ...);
 
 /* The log_<name> macros need the PROGRAM_NAME macro to be defined so we set it
  * to a dummy program name if it is unset. */
-#ifndef PROGRAM_NAME 
+#ifndef PROGRAM_NAME
 #define PROGRAM_NAME "dummy-prog-name"
 #endif /* PROGRAM_NAME */
 

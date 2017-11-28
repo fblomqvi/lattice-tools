@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -28,7 +28,7 @@ t_VEC_MPQ* VEC_MPQ_alloc2(size_t max_size, size_t size)
 {
     t_VEC_MPQ* vec = malloc(sizeof(t_VEC_MPQ));
     libcheck_mem(vec);
-   
+
     vec->size = size;
     vec->max_size = max_size;
     vec->data = malloc(max_size * sizeof(mpq_t));
@@ -135,7 +135,7 @@ void VEC_MPQ_clear_denominators(t_VEC_MPQ* r, const t_VEC_MPQ* a, mpq_t ws)
     VEC_MPQ_mul(r, a, ws);
 }
 
-void VEC_MPQ_clear_denominators_size(t_VEC_MPQ* r, const t_VEC_MPQ* a, 
+void VEC_MPQ_clear_denominators_size(t_VEC_MPQ* r, const t_VEC_MPQ* a,
                                     mpq_t ws, size_t len)
 {
     assert(len >= 2 && len <= a->max_size);

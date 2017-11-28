@@ -133,7 +133,7 @@ static void move_up_calculations(size_t k, double* y, SDSE_WS* ws)
 }
 
 void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_WS* ws)
-{   
+{
     gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
 
     size_t m = ws->R->size2;

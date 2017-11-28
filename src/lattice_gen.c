@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -150,7 +150,7 @@ error:
     return NULL;
 }
 
-t_MAT_MPZ* lattice_gen_random_square_gmp(size_t dimension, size_t exponent, 
+t_MAT_MPZ* lattice_gen_random_square_gmp(size_t dimension, size_t exponent,
                                         unsigned long seed, size_t bits)
 {
     t_MAT_MPZ* M = MAT_MPZ_alloc(dimension, dimension);
@@ -242,7 +242,7 @@ static int MAT_MPZ_power(t_MAT_MPZ** M, size_t exponent)
         *M = R;
         R = T;
     }
-     
+
     MAT_MPZ_free(T);
     MAT_MPZ_free(R);
     return 0;

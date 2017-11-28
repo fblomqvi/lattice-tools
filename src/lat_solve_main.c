@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -41,7 +41,7 @@ typedef enum enum_mode
     MODE_COMPARE
 } Mode;
 
-typedef struct s_options 
+typedef struct s_options
 {
     char* basis_file;
     char* output;
@@ -62,7 +62,7 @@ typedef struct s_options
 } OPT;
 
 static const OPT OPT_default = {
-    .basis_file = NULL, .output = NULL, 
+    .basis_file = NULL, .output = NULL,
     .cword_num = 0, .rows_as_basis = 1,
     .no_config = 0, .binary_out = 1,
     .verbose = 0, .alg = ALG_SPHERE_SE,
@@ -73,7 +73,7 @@ static const OPT OPT_default = {
 
 static int print_help(FILE* file)
 {
-    static const char* formatstr = 
+    static const char* formatstr =
 "Usage: %s [OPTION]... INPUT\n"
 "  or:  %s [OPTION]... INPUT OUTPUT\n\n"
 "Solves the closest vector problem on (R^n, L), where L is the lattice defined\n"
@@ -96,7 +96,7 @@ static int print_help(FILE* file)
 "  -v, --verbose                Verbose output. Only affects 'compare mode'.\n"
 "      --help                   Display this help and exit.\n"
 "      --version                Output version information and exit.\n";
-    
+
     return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME,
                 algorithm_get_name(ALG_SPHERE_SE)) < 0)
                 ? LT_FAILURE : LT_SUCCESS;
@@ -181,7 +181,7 @@ static void parse_cmdline(int argc, char* const argv[], OPT* opt)
 
     lcheck_pf(optind < argc, log_plain, error, "No basis file given");
     opt->basis_file = argv[optind++];
-    
+
     if(optind < argc)
         opt->output = argv[optind];
 
@@ -288,7 +288,7 @@ static int solve(FILE* outfile, OPT* opt)
         {
             int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
             llibcheck(rc == 0, error_c, "read_cword_binary failed");
-            
+
             opt->solve(&v_clp.vector, &v_cword.vector, opt->basis, opt->ws);
             lcheck(fwrite(clp, sizeof(long), conf->dimension, outfile)
                     == conf->dimension, error_c, "fwrite failed");
@@ -303,7 +303,7 @@ static int solve(FILE* outfile, OPT* opt)
         {
             int rc = read_cword_binary(cword, conf->dimension, sizeof(double));
             llibcheck(rc == 0, error_c, "read_cword_binary failed");
-            
+
             rc = print_dvector_cword(outfile, cword, conf->dimension, fmt);
             lcheck(rc == 0, error_c, "print_dvector_cword failed");
 

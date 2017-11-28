@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -45,7 +45,7 @@ typedef enum enum_mode
     MODE_ZERO
 } Mode;
 
-typedef struct s_options 
+typedef struct s_options
 {
     char* input;
     char* output;
@@ -71,11 +71,11 @@ typedef struct s_options
 
 static int print_help(FILE* file)
 {
-    static const char* formatstr = 
+    static const char* formatstr =
 "Usage: %s [OPTION]...\n"
 "  or:  %s [OPTION]... OUTPUT\n\n%s\n";
 
-    static const char* helpstr = 
+    static const char* helpstr =
 "Generates random points in Euclidean space. Outputs to stdout\n"
 "if no output file is given.\n\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
@@ -112,8 +112,8 @@ static int print_help(FILE* file)
 "      --version                Output version information and exit.\n\n"
 "If more that one of 'A', 'B', and 'H' are given, then the one specified last\n"
 "takes precedence.\n";
-    
-    return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0) 
+
+    return (fprintf(file, formatstr, PROGRAM_NAME, PROGRAM_NAME, helpstr) < 0)
                 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
@@ -144,7 +144,7 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
     // Setting default options
     *opt = (RP_OPT) {
         .input = NULL, .output = NULL, .cword_len = 0,
-        .cword_num = 0, .seed = 0, 
+        .cword_num = 0, .seed = 0,
         .min = 0, .max = 0, .sloppy = 0,
         .output_conf = 1, .hyp_mode = HYP_MODE_NO,
         .min_set = 0, .max_set = 0,
@@ -198,14 +198,14 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
                 break;
             case 'm':
                 opt->min = strtol(optarg, &endptr, 10);
-                check(*endptr == '\0' && 
+                check(*endptr == '\0' &&
                     !(errno == ERANGE && (opt->min == LONG_MAX || opt->min == LONG_MIN)),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 opt->min_set = 1;
                 break;
             case 'M':
                 opt->max = strtol(optarg, &endptr, 10);
-                check(*endptr == '\0' && 
+                check(*endptr == '\0' &&
                     !(errno == ERANGE && (opt->max == LONG_MAX || opt->max == LONG_MIN)),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 opt->max_set = 1;
@@ -231,7 +231,7 @@ static void parse_cmdline(int argc, char* const argv[], RP_OPT* opt)
             case 'S':
             {
                 opt->seed = strtoul(optarg, &endptr, 10);
-                check(*endptr == '\0' && !(errno == ERANGE && opt->seed == ULONG_MAX), 
+                check(*endptr == '\0' && !(errno == ERANGE && opt->seed == ULONG_MAX),
                     "invalid argument to option '%c': '%s'", ch, optarg);
                 break;
             }
@@ -291,7 +291,7 @@ static int generate_zero_pnt(FILE* file, size_t size, size_t n, size_t num_cword
     check_mem(cword);
 
     int rc = generate_zero_helper(file, cword, size, n, num_cwords);
-    free(cword); 
+    free(cword);
     libcheck(rc == 0, "generate_zero_helper failed");
     return 0;
 
@@ -319,7 +319,7 @@ static void get_point(double* p, gsl_rng* rng, RP_OPT* opt)
             rnd_point_get_SPC(p, opt->cword_len, rng, opt->hyperplane);
             break;
         case 5:
-            rnd_point_min_max_SPC(p, opt->cword_len, rng, opt->hyperplane, 
+            rnd_point_min_max_SPC(p, opt->cword_len, rng, opt->hyperplane,
                                     opt->min, opt->max);
             break;
         case 8:
@@ -332,7 +332,7 @@ static void get_point(double* p, gsl_rng* rng, RP_OPT* opt)
             break;
         case 12:
         case 13:
-            rnd_point_min_max_SPC_fast(p, opt->cword_len, rng, opt->hyperplane, 
+            rnd_point_min_max_SPC_fast(p, opt->cword_len, rng, opt->hyperplane,
                                         opt->min, opt->max);
             break;
         default:
@@ -459,8 +459,8 @@ error:
 
 static int print_conf_binary(FILE* file, RP_OPT* opt)
 {
-    RND_PNT_CONF conf = { 
-        .hyperplane = opt->hyperplane, .dimension = opt->cword_len, 
+    RND_PNT_CONF conf = {
+        .hyperplane = opt->hyperplane, .dimension = opt->cword_len,
         .num_cwords = opt->cword_num, .A_n = opt->hyp_mode };
 
     return RND_PNT_CONF_write(file, &conf);
@@ -548,7 +548,7 @@ int main(int argc, char* argv[])
 
     if(opt.output_conf)
     {
-        rc = (opt.print_point == print_dvector_binary ? print_conf_binary(outfile, &opt) 
+        rc = (opt.print_point == print_dvector_binary ? print_conf_binary(outfile, &opt)
                 : print_conf_plain(outfile, &opt));
         llibcheck(rc == 0, error_a, "print_conf_* failed");
     }

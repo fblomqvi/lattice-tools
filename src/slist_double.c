@@ -22,7 +22,7 @@ SLIST_DOUBLE* SLIST_DOUBLE_alloc(void)
 
 void SLIST_DOUBLE_free(SLIST_DOUBLE* slist)
 {
-    if(!slist) 
+    if(!slist)
         return;
 
     SLIST_DOUBLE_NODE* node = slist->first;

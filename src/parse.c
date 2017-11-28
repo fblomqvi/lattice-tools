@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -49,7 +49,7 @@ static void print_error_msg(int eof, size_t line_number)
 */
 
 static int is_printable(const char* str)
-{ 
+{
     while(*str != '\0')
     {
         if(!isprint(*str))
@@ -83,7 +83,7 @@ static void find_eol(char* line, char** next_line, int* eof)
         }
         line++;
     }
-    *eof = 1;    
+    *eof = 1;
 }
 */
 
@@ -96,14 +96,14 @@ static int read_size_t_line(char* ptr, char** endptr, size_t* n, STATE* state)
     libcheck(isdigit(*ptr), "syntax error, expected digit");
 
     *n = strtoul(ptr, &ptr, 10);
-    libcheck(*ptr == '\0' && !(errno == ERANGE && *n == ULONG_MAX), 
+    libcheck(*ptr == '\0' && !(errno == ERANGE && *n == ULONG_MAX),
                 "syntax error or input is not an integer");
 
     state->line_num++;
     return 0;
 
 error:
-    log_err_ne("Parsing error on line %zu: '%s'; expected '%%zu'", 
+    log_err_ne("Parsing error on line %zu: '%s'; expected '%%zu'",
             state->line_num, printable_input(line));
     return -1;
 }
@@ -132,11 +132,11 @@ static int read_until_space(FILE* file, char* buffer, size_t buf_len)
 
     int ch;
     size_t read_len = 0;
-    
+
     // We skip initial whitespace.
     do {
         ch = fgetc(file);
-        check(ch != EOF, "Error parsing: %s", ferror(file) ? 
+        check(ch != EOF, "Error parsing: %s", ferror(file) ?
                 "stream error" : "end of file reached");
     } while(isspace(ch));
 
@@ -146,7 +146,7 @@ static int read_until_space(FILE* file, char* buffer, size_t buf_len)
 
         buffer[read_len++] = ch;
         ch = fgetc(file);
-        check(ch != EOF, "Error parsing: %s", ferror(file) ? 
+        check(ch != EOF, "Error parsing: %s", ferror(file) ?
                 "stream error" : "end of file reached");
     } while(!isspace(ch));
 
@@ -166,7 +166,7 @@ static int read_until_newline(FILE* file, char** buffer_ptr, size_t* buf_len)
     int ch;
     size_t read_len = 0;
     char* buffer = *buffer_ptr;
-    
+
     // We skip initial whitespace.
     do {
         ch = fgetc(file);
@@ -209,8 +209,8 @@ static int read_degree(FILE* file, long* degree)
     int rc = read_until_space(file, buffer, sizeof(buffer));
     libcheck(rc == 0, "read_until_space failed");
     *degree = strtol(buffer, &endptr, 10);
-    check(*endptr == '\0' && 
-            !(errno == ERANGE && (*degree == LONG_MAX || *degree == LONG_MIN)), 
+    check(*endptr == '\0' &&
+            !(errno == ERANGE && (*degree == LONG_MAX || *degree == LONG_MIN)),
             "Error parsing '%s'; expected '%%zu'", printable_input(buffer));
     return 0;
 
@@ -223,14 +223,14 @@ static int skip_comment_lines(FILE* file, char comment_start)
     while(1)
     {
         int ch = fgetc(file);
-        check(ch != EOF, "Error parsing: %s", ferror(file) ? 
+        check(ch != EOF, "Error parsing: %s", ferror(file) ?
                 "stream error" : "end of file reached");
 
         if(ch == comment_start)
         {
             do {
                 ch = fgetc(file);
-                check(ch != EOF, "Error parsing: %s", ferror(file) ? 
+                check(ch != EOF, "Error parsing: %s", ferror(file) ?
                         "stream error" : "end of file reached");
             } while(ch != '\n');
         }

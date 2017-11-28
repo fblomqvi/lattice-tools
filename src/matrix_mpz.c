@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -215,10 +215,10 @@ void MAT_MPZ_mulvec(t_VEC_MPZ* r, const t_MAT_MPZ* A, const t_VEC_MPZ* b)
         VEC_MPZ_addmul(r, A->columns[i], VEC_MPZ_get(b, i));
 }
 
-void MAT_MPZ_solve_trans_size(t_VEC_MPZ* x, const t_MAT_MPZ* A, size_t A_rows, 
+void MAT_MPZ_solve_trans_size(t_VEC_MPZ* x, const t_MAT_MPZ* A, size_t A_rows,
                             size_t A_cols, t_VEC_MPQ* ws, mpq_t wsq)
 {
-    assert(A_cols == A_rows - 1); 
+    assert(A_cols == A_rows - 1);
     assert(VEC_MPZ_max_size(x) >= A_rows && VEC_MPQ_max_size(ws) >= A_rows);
     size_t n = A_cols;
     mpq_set_ui(VEC_MPQ_get(ws, n), 1, 1);
@@ -254,7 +254,7 @@ void MAT_MPZ_diag_prod(mpz_t det, const t_MAT_MPZ* M)
 }
 
 void MAT_MPZ_print(FILE* file, const t_MAT_MPZ* M, int transpose, const PRINTING_FMT* fmt)
-{ 
+{
     if(transpose)
         MAT_MPZ_print_trans(file, M, fmt);
     else

@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #ifndef FB_LIBLATTICE_RND_POINT_H
@@ -42,17 +42,17 @@ void rnd_point_get_SPC(double* p, size_t size, gsl_rng* rng, long* coeffs);
 
 void rnd_point_uniform(double* p, size_t size, gsl_rng* rng, unsigned long n);
 void rnd_point_uniform_A_N(double* p, size_t size, gsl_rng* rng, unsigned long n);
-void rnd_point_uniform_SPC(double* p, size_t size, gsl_rng* rng, 
+void rnd_point_uniform_SPC(double* p, size_t size, gsl_rng* rng,
                             long* coeffs, unsigned long n);
 
 void rnd_point_min_max(double* p, size_t size, gsl_rng* rng, long min, long max);
 void rnd_point_min_max_A_N(double* p, size_t size, gsl_rng* rng, long min, long max);
-void rnd_point_min_max_SPC(double* p, size_t size, gsl_rng* rng, 
+void rnd_point_min_max_SPC(double* p, size_t size, gsl_rng* rng,
                             long* coeffs, long min, long max);
 
 void rnd_point_min_max_fast(double* p, size_t size, gsl_rng* rng, long min, long max);
 void rnd_point_min_max_A_N_fast(double* p, size_t size, gsl_rng* rng, long min, long max);
-void rnd_point_min_max_SPC_fast(double* p, size_t size, gsl_rng* rng, 
+void rnd_point_min_max_SPC_fast(double* p, size_t size, gsl_rng* rng,
                                 long* coeffs, long min, long max);
 
 #endif /* FB_LIBLATTICE_RND_POINT_H */

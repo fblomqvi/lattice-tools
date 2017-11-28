@@ -37,9 +37,9 @@ static int print_table_headers(FILE* file);
 
 static int print_file_headers(FILE* file);
 
-static int print_vnr_result_file(FILE* file, double vnr, size_t frame_errs, 
+static int print_vnr_result_file(FILE* file, double vnr, size_t frame_errs,
                         size_t bit_errs, size_t frames, size_t bits);
-static int print_vnr_result_user(FILE* file, double vnr, size_t frame_errs, 
+static int print_vnr_result_user(FILE* file, double vnr, size_t frame_errs,
                         size_t bit_errs, size_t frames, size_t bits);
 
 int lat_sim_end_callback(const SIM_STATUS* status, void* args)
@@ -75,20 +75,20 @@ error:
 
 int lat_sim_start_callback_quiet(const SIM_STATUS* status __attribute__((__unused__)),
                                 void* args)
-{ 
+{
     LSC_ARGS* a = (LSC_ARGS*) args;
-    return print_file_headers(a->file); 
+    return print_file_headers(a->file);
 }
 
 int lat_sim_vnr_callback_std(const SIM_STATUS* status, void* args)
 {
     LSC_ARGS* a = (LSC_ARGS*) args;
-    int lt_errno = print_vnr_result_user(a->ui, status->vnr, 
-                        status->frame_errs, status->bit_errs, 
+    int lt_errno = print_vnr_result_user(a->ui, status->vnr,
+                        status->frame_errs, status->bit_errs,
                         status->frames, status->frames * status->n);
     lt_libcheck(lt_errno, "print_vnr_result_user failed");
-    lt_errno = print_vnr_result_file(a->file, status->vnr, 
-                        status->frame_errs, status->bit_errs, 
+    lt_errno = print_vnr_result_file(a->file, status->vnr,
+                        status->frame_errs, status->bit_errs,
                         status->frames, status->frames * status->n);
     lt_libcheck(lt_errno, "print_vnr_result_file failed");
 error:
@@ -98,8 +98,8 @@ error:
 int lat_sim_vnr_callback_quiet(const SIM_STATUS* status, void* args)
 {
     LSC_ARGS* a = (LSC_ARGS*) args;
-    return print_vnr_result_file(a->file, status->vnr, 
-                        status->frame_errs, status->bit_errs, 
+    return print_vnr_result_file(a->file, status->vnr,
+                        status->frame_errs, status->bit_errs,
                         status->frames, status->frames * status->n);
 }
 
@@ -123,8 +123,8 @@ static int print_table_footer(FILE* file)
 
 static int print_table_headers(FILE* file)
 {
-    return fprintf(file, TABLE_VLINE "\n| %-9s| %-13s| %-14s| %-11s| %-17s| %-18s|\n" 
-            TABLE_VLINE "\n", 
+    return fprintf(file, TABLE_VLINE "\n| %-9s| %-13s| %-14s| %-11s| %-17s| %-18s|\n"
+            TABLE_VLINE "\n",
             table_headers[0], table_headers[1], table_headers[2],
             table_headers[3], table_headers[4], table_headers[5]) > 0 ?
         LT_SUCCESS : LT_ESYSTEM;
@@ -137,13 +137,13 @@ static int print_file_headers(FILE* file)
             table_headers[3], table_headers[4], table_headers[5]) > 0 ?
         LT_SUCCESS : LT_ESYSTEM;
 }
-static int print_vnr_result_user(FILE* file, double vnr, size_t frame_errs, 
+static int print_vnr_result_user(FILE* file, double vnr, size_t frame_errs,
                         size_t bit_errs, size_t frames, size_t bits)
 {
     const double fer = (double) frame_errs / frames;
     const double ber = (double) bit_errs / bits;
-    int rc =  fprintf(file, "|%9.4f |%13zu |%14zu |%11zu |%17.8e |%18.8e |\n", 
-                    vnr, frame_errs, bit_errs, frames, fer, ber); 
+    int rc =  fprintf(file, "|%9.4f |%13zu |%14zu |%11zu |%17.8e |%18.8e |\n",
+                    vnr, frame_errs, bit_errs, frames, fer, ber);
     libcheck(rc >= 0, "printing error");
     return LT_SUCCESS;
 
@@ -151,12 +151,12 @@ error:
     return LT_ESYSTEM;
 }
 
-static int print_vnr_result_file(FILE* file, double vnr, size_t frame_errs, 
+static int print_vnr_result_file(FILE* file, double vnr, size_t frame_errs,
                         size_t bit_errs, size_t frames, size_t bits)
 {
     const double fer = (double) frame_errs / frames;
     const double ber = (double) bit_errs / bits;
-    int rc =  fprintf(file, "%f\t%zu\t%zu\t%zu\t%.8e\t%.8e\n", 
+    int rc =  fprintf(file, "%f\t%zu\t%zu\t%zu\t%.8e\t%.8e\n",
                     vnr, frame_errs, bit_errs, frames, fer, ber);
     libcheck(rc >= 0, "printing error");
     libcheck(fflush(file) == 0, "fflush failed");

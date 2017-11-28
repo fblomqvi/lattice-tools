@@ -12,7 +12,7 @@
 
    You should have received a copy of the GNU General Public License along with
    this program. If not, see <http://www.gnu.org/licenses/>.
-   
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -49,7 +49,7 @@ static int print_help(FILE* file)
 "Usage: %s [OPTION]... INPUT\n"
 "  or:  %s [OPTION]... INPUT OUTPUT\n\n%s\n";
 
-    static const char* helpstr = 
+    static const char* helpstr =
 
 "Solves the shortest vector problem for the lattice read from INPUT. Outputs\n"
 "to stdout if no output file is given.\n\n"

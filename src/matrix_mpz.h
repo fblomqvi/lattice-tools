@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #ifndef FB_MATRIX_MPZ_H
@@ -31,7 +31,7 @@ typedef struct s_matrix_mpz
     size_t cols;
     size_t max_rows;
     size_t max_cols;
-    t_VEC_MPZ** columns; 
+    t_VEC_MPZ** columns;
     int owner;
 } t_MAT_MPZ;
 
@@ -90,7 +90,7 @@ static inline void MAT_MPZ_scale_mul(t_MAT_MPZ* R, const t_MAT_MPZ* A, const mpz
 void MAT_MPZ_mulvec(t_VEC_MPZ* r, const t_MAT_MPZ* A, const t_VEC_MPZ* b);
 
 // Set r to A^T * b
-static inline void MAT_MPZ_mulvec_trans_size(t_VEC_MPZ* r, const t_MAT_MPZ* A, 
+static inline void MAT_MPZ_mulvec_trans_size(t_VEC_MPZ* r, const t_MAT_MPZ* A,
                                 const t_VEC_MPZ* b, size_t A_rows, size_t A_cols)
 {
     for(size_t i = 0; i < A_cols; i++)
@@ -108,10 +108,10 @@ void MAT_MPZ_mul_trans(t_MAT_MPZ* R, const t_MAT_MPZ* A, const t_MAT_MPZ* B);
 void MAT_MPZ_mul_trans_size(t_MAT_MPZ* R, const t_MAT_MPZ* A, const t_MAT_MPZ* B,
                             size_t A_rows, size_t A_cols, size_t B_cols);
 
-// Assumes that B is upper triangular. Does not work if A_rows is smaller than B_cols. 
+// Assumes that B is upper triangular. Does not work if A_rows is smaller than B_cols.
 // Or something like that
-static inline void MAT_MPZ_mul_trans_UT_size(t_MAT_MPZ* R, const t_MAT_MPZ* A, 
-                                            const t_MAT_MPZ* B, size_t A_rows, 
+static inline void MAT_MPZ_mul_trans_UT_size(t_MAT_MPZ* R, const t_MAT_MPZ* A,
+                                            const t_MAT_MPZ* B, size_t A_rows,
                                             size_t A_cols, size_t B_cols)
 {
     for(size_t i = 0; i < B_cols; i++)
@@ -122,10 +122,10 @@ void MAT_MPZ_print_no_trans(FILE* file, const t_MAT_MPZ* M, const PRINTING_FMT* 
 void MAT_MPZ_print_trans(FILE* file, const t_MAT_MPZ* M, const PRINTING_FMT* fmt);
 void MAT_MPZ_print(FILE* file, const t_MAT_MPZ* M, int transpose, const PRINTING_FMT* fmt);
 
-void MAT_MPZ_solve_trans_size(t_VEC_MPZ* x, const t_MAT_MPZ* A, size_t A_rows, 
+void MAT_MPZ_solve_trans_size(t_VEC_MPZ* x, const t_MAT_MPZ* A, size_t A_rows,
                             size_t A_cols, t_VEC_MPQ* ws, mpq_t wsq);
 
-static inline void MAT_MPZ_solve_trans(t_VEC_MPZ* x, const t_MAT_MPZ* A, 
+static inline void MAT_MPZ_solve_trans(t_VEC_MPZ* x, const t_MAT_MPZ* A,
                                         t_VEC_MPQ* ws, mpq_t wsq)
 { MAT_MPZ_solve_trans_size(x, A, A->rows, A->cols, ws, wsq); }
 
@@ -173,7 +173,7 @@ static inline void MAT_MPZ_add_col(t_MAT_MPZ* M, t_VEC_MPZ* v)
 
 // No bounds checking!
 static inline t_VEC_MPZ* MAT_MPZ_del_col(t_MAT_MPZ* M, size_t i)
-{ 
+{
     t_VEC_MPZ* t = M->columns[i];
     M->columns[i] = M->columns[--M->cols];
     return t;

@@ -109,7 +109,7 @@ gsl_matrix *read_matrix(FILE *f, int transpose) {
     int entries = 0;
     int rows = 0;
     int read = 2;
-    
+
     while(!(current == ']' && previous == ']')) {
         if (isdigit(previous) && !(isdigit(current) || current == '.')) entries++;
         if (current == ']') rows++;
@@ -121,15 +121,15 @@ gsl_matrix *read_matrix(FILE *f, int transpose) {
             return NULL;
         }
     }
-    
+
     fseek(f, -read, SEEK_CUR);
-    
+
     int cols = entries/rows;
     if (entries % rows != 0) {
         fprintf(stderr, "Amount of entries does not match matrix dimensions (expected %d, found %d).\n", (cols+1)*rows, entries);
         return NULL;
     }
-    
+
     gsl_matrix* M;
     if(transpose)
     {
@@ -173,7 +173,7 @@ gsl_vector *read_vector(FILE *f) {
     char current = fgetc(f);
     int entries = 0;
     int read = 1;
-    
+
     while (current != ']') {
         if (isdigit(previous) && !(isdigit(current) || current == '.')) entries++;
         previous = current;
@@ -185,10 +185,10 @@ gsl_vector *read_vector(FILE *f) {
         }
     }
     entries++;
-    
+
     fseek(f, -read, SEEK_CUR);
     gsl_vector *v = gsl_vector_alloc(entries);
-    
+
     for (int i = 0; i < entries; i++) {
         double current;
         while(!fscanf(f, "%lf", &current)) {
@@ -207,23 +207,23 @@ gsl_vector *read_vector(FILE *f) {
  */
 /*
 gsl_matrix *generate_basis(gsl_matrix *H, int q) {
-    
+
     // Set the dimensions of the corresponding generator matrix G.
     int n = H->size2;
     int k = n - H->size1;
-    
+
     // Check that the parity-check matrix H is of the correct form.
     gsl_matrix_view I_view = gsl_matrix_submatrix(H, 0, k, n-k, n-k);
     gsl_matrix *I = gsl_matrix_alloc(H->size1, H->size1);
     gsl_matrix_set_identity(I);
     assert(gsl_matrix_equal(&I_view.matrix, I));
     gsl_matrix_free(I);
-    
+
     // Clone the non-identity part of H to A.
     gsl_matrix_view A_view = gsl_matrix_submatrix(H, 0, 0, n-k, k);
     gsl_matrix *A = gsl_matrix_alloc(A_view.matrix.size1, A_view.matrix.size2);
     gsl_matrix_memcpy(A, &A_view.matrix);
-    
+
     // Set G_sub to be the additive inverse of the non-identity part of H.
     for (size_t i = 0; i < A->size1; i++) {
         for (size_t j = 0; j < A->size2; j++) {
@@ -235,26 +235,26 @@ gsl_matrix *generate_basis(gsl_matrix *H, int q) {
             }
         }
     }
-    
+
     // Allocate memory for the basis matrix (the result) and...
     gsl_matrix *B = gsl_matrix_alloc(n, n);
     // ...set diagonal to identity.
     gsl_matrix_set_identity(B);
-    
+
     // ...set lower left part to be the additive inverse of the non-identity part of H.
     for (int i = k; i < n; i++) {
         for (int j = 0; j < k; j++) {
             gsl_matrix_set(B, i, j, gsl_matrix_get(A, i-k, j));
         }
     }
-    
+
     // ...set the lower right part to be q times identity.
     for (int i = k; i < n; i++) {
             gsl_matrix_set(B, i, i, q);
     }
-    
+
     gsl_matrix_free(A);
-    
+
     return B;
 }
 */
@@ -272,7 +272,7 @@ double calc_mu (const gsl_vector *v, const gsl_vector *u) {
 }
 */
 
-/* Allocates memory for and returns the vector that is the projection of v onto u: 
+/* Allocates memory for and returns the vector that is the projection of v onto u:
  * projection(gsl_vector *v, gsl_vector *u) = µ*u = <v,u>/||u||^2 * u
  */
 /*
@@ -294,13 +294,13 @@ gsl_vector *projection(const gsl_vector *v, const gsl_vector *u) {
 gsl_matrix *gram_schmidt(const gsl_matrix *B) {
     // Allocate memory for the result matrix.
     gsl_matrix *res = gsl_matrix_alloc(B->size1, B->size2);
-    
+
     for (size_t i = 0; i < B->size2; i++) {
         //Initialize new vector v and copy i:th column of input
         // matrix B to vector v.
         gsl_vector_const_view b = gsl_matrix_const_column(B, i);
         gsl_vector *v = clone_vector(&b.vector);
-        
+
         for (size_t j = 0; j < i; j++) {
             // u is the j:th already calculated orthogonal basis vector.
             gsl_vector_const_view u = gsl_matrix_const_column(res, j);
@@ -318,7 +318,7 @@ gsl_matrix *gram_schmidt(const gsl_matrix *B) {
         // Free memory allocated to v.
         gsl_vector_free(v);
     }
-    
+
     return res;
 }
 */
@@ -333,11 +333,11 @@ int is_singular(gsl_matrix *B) {
     gsl_matrix *V = gsl_matrix_alloc(m, m);
     gsl_vector *work = gsl_vector_alloc(m);
     gsl_linalg_SV_decomp(U, V, s, work);
-    
+
     gsl_matrix_free(U);
     gsl_matrix_free(V);
     gsl_vector_free(work);
-    
+
     for (int i = 0; i < m; i++) {
         if (gsl_vector_get(s, i) < 0.01) {
             gsl_vector_free(s);
@@ -356,7 +356,7 @@ gsl_matrix *random_basis(int n, int m, gsl_rng *rng, int maxval) {
             gsl_matrix_set(B, i, j, gsl_rng_uniform_int(rng, rngmax));
         }
     }
-    
+
     if (is_singular(B)) {
         gsl_matrix_free(B);
         return random_basis(n, m, rng, maxval);

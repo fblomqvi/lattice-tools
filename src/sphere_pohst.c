@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist and Juuso Korvuo. */
 
 #include "dbg.h"
@@ -99,7 +99,7 @@ int SD_WS_alloc_and_init(SD_WS** ws_ptr, const gsl_matrix* B)
 
     ws->Q1 = gsl_matrix_submatrix(ws->Q, 0, 0, n, m);
     ws->Rsub = gsl_matrix_submatrix(ws->R, 0, 0, m, m);
-    
+
     *ws_ptr = ws;
     return lt_errno;
 
@@ -122,7 +122,7 @@ void SD_WS_free(SD_WS *ws)
 }
 
 /* Calculate the end return the value of ŷ_k. ŷ_k is y_k from which have been
- * subtracted the kth row values of R multiplied by corresponding values of s 
+ * subtracted the kth row values of R multiplied by corresponding values of s
  * excluding the diagonal. Example with k=2:
  *   [d0  #  #  #  #]      [s0]
  *   [ 0 d1  #  #  #]      [s1]
@@ -160,7 +160,7 @@ static double calc_d2(size_t k, SD_WS* ws)
  * The best vector s is found by calculating upper and lower bounds for kth
  * element of s (denoted by s_k) and systematically incrementing s_k starting
  * from the lower bound. Whenever B*s is inside the hypersphere, move to k-1:th
- * element of s and repeat the process until k=0 (all coordinates of s have 
+ * element of s and repeat the process until k=0 (all coordinates of s have
  * been determined).
  * If the value of s_k causes the current point not to be inside the sphere,
  * move to previous coordinate s_(k+1) and repeat the process there.
@@ -168,7 +168,7 @@ static double calc_d2(size_t k, SD_WS* ws)
  * its upper bound; all possible solutions have been found.
  */
 void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_WS *ws)
-{   
+{
     assert(B->size1 == t->size);
     size_t m = B->size2;
     double d_sqr;
@@ -177,7 +177,7 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_
     /*******************************************************************/
     /* ACTUAL ALGORITHM STARTS HERE                                    */
     /*******************************************************************/
-    
+
     // Step 1: set initial values.
     int set_new_bounds = 1;
     size_t solutions = 0;
@@ -204,7 +204,7 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_
                 solutions++;
                 step_5a(ws, &d_sqr, m);
             }
-            else 
+            else
             {
                 step_5b(ws, &k);
                 set_new_bounds = 1;
@@ -217,7 +217,7 @@ void spheredecode(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_
 }
 
 void sd_dp(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_WS *ws)
-{   
+{
     assert(B->size1 == t->size);
     size_t m = B->size2;
     double d_sqr;
@@ -249,7 +249,7 @@ void sd_dp(gsl_vector* clp, const gsl_vector* t, const gsl_matrix *B, SD_WS *ws)
                 solutions++;
                 step_5a(ws, &d_sqr, m);
             }
-            else 
+            else
             {
                 step_5b(ws, &k);
                 set_new_bounds = 1;
@@ -279,7 +279,7 @@ static void sd_dp_common(SD_WS* ws, const gsl_vector* t, double* d_sqr, size_t m
         dist += d * d;
     }
     *d_sqr = dist;
-    
+
     /*
     // Set Q2Tx_len2 = ||(Q2^T)*x||^2.
     double Q2Tx_len2 = 0;

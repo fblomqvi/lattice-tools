@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #ifndef FB_VECTOR_MPQ_H
@@ -89,7 +89,7 @@ static inline void VEC_MPQ_norm_sqr(mpq_t r, const t_VEC_MPQ* a, mpq_t ws)
 
 // Assumes that a has length at least 2.
 void VEC_MPQ_clear_denominators(t_VEC_MPQ* r, const t_VEC_MPQ* a, mpq_t ws);
-void VEC_MPQ_clear_denominators_size(t_VEC_MPQ* r, const t_VEC_MPQ* a, 
+void VEC_MPQ_clear_denominators_size(t_VEC_MPQ* r, const t_VEC_MPQ* a,
                                     mpq_t ws, size_t len);
 
 void VEC_MPQ_print(FILE* file, const t_VEC_MPQ* vec);
