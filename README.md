@@ -34,7 +34,7 @@ __an-solve__. __rnd-point__ can also be used as a stand-alone program.
 
 __lat-gen__, __lat-sim__ and __lat-svp__ are intended as stand-alone programs.
 
-See tha manual pages for these programs for more information.
+See tha manual pages of these programs for more information.
 
 
 NOTES
