@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #ifndef FB_LIBLATTICE_ALGORITHM_H
@@ -24,6 +24,7 @@ typedef enum algorithm
 {
     ALG_BABAI = 0,
     ALG_DPLANE,
+    ALG_DPLANE_ITER,
     ALG_DPLANE_VANILLA,
     ALG_SPHERE_POHST,
     ALG_SPHERE_DP,
@@ -37,7 +38,7 @@ int algorithm_parse_name(const char* name);
 const char* algorithm_get_name(Algorithm alg);
 int algorithm_print_names(FILE* file);
 
-int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws, 
+int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws,
                             Algorithm alg, const gsl_matrix* basis);
 
 void algorithm_free_ws(void* ws, Algorithm alg);

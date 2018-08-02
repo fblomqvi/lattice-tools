@@ -142,7 +142,11 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
     ws->dist[k] = 0;
 
     double y;
-    move_down_calculations(k, &y, ws);
+    //move_down_calculations(k, &y, ws);
+    ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
+    ws->s[k] = round(ws->e[k]);
+    y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+    ws->step[k] = sgn(y);
 
     while(1)
     {
@@ -153,14 +157,21 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
             {
                 k--;        // Move down
                 ws->dist[k] = new_dist;
-                move_down_calculations(k, &y, ws);
+                //move_down_calculations(k, &y, ws);
+		ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
+		ws->s[k] = round(ws->e[k]);
+		y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+		ws->step[k] = sgn(y);
             }
             else
             {
                 memcpy(ws->x, ws->s, m * sizeof(double));
                 dist_min = new_dist;
                 k++;        // Move up
-                move_up_calculations(k, &y, ws);
+                //move_up_calculations(k, &y, ws);
+		ws->s[k] += ws->step[k];
+		y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+		ws->step[k] = -ws->step[k] - sgn(ws->step[k]);
             }
         }
         else
@@ -170,7 +181,10 @@ void sphere_se(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_W
             else
             {
                 k++;        // Move up
-                move_up_calculations(k, &y, ws);
+                //move_up_calculations(k, &y, ws);
+		ws->s[k] += ws->step[k];
+		y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+		ws->step[k] = -ws->step[k] - sgn(ws->step[k]);
             }
         }
     }
@@ -230,3 +244,68 @@ void sphere_se_svp(gsl_vector* clp, const gsl_matrix* B, SDSE_WS* ws)
 
 void sphere_se_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
 { sphere_se(clp, t, B, ws); }
+
+void dplane_iter(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, SDSE_WS* ws)
+{
+    gsl_blas_dgemv(CblasTrans, 1, &ws->Q1.matrix, t, 0, &ws->v_y.vector);
+
+    size_t m = ws->R->size2;
+    double dist_min = INFINITY;
+    size_t k = m - 1;
+    ws->dist[k] = 0;
+
+    double y;
+    ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
+    ws->s[k] = round(ws->e[k]);
+    y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+    ws->step[k] = sgn(y);
+
+    while(1)
+    {
+        double new_dist = ws->dist[k] + y * y;
+        if(new_dist < dist_min)
+        {
+            if(k > 0)
+            {
+                k--;        // Move down
+                ws->dist[k] = new_dist;
+		ws->e[k] = calc_yhat(k, ws->R, ws->y, ws->s) / gsl_matrix_get(ws->R, k, k);
+		ws->s[k] = round(ws->e[k]);
+		y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+		ws->step[k] = sgn(y);
+            }
+            else
+            {
+                memcpy(ws->x, ws->s, m * sizeof(double));
+                dist_min = new_dist;
+		while(ws->step[++k] == 2.0)
+		    if(k == m - 1)
+			break;
+
+		ws->s[k] += ws->step[k];
+		y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+		ws->step[k] = 2.0;
+            }
+        }
+        else
+        {
+            if(k == m - 1)
+                break;
+            else
+            {
+		while(ws->step[++k] == 2.0)
+		    if(k == m - 1)
+			break;
+
+		ws->s[k] += ws->step[k];
+		y = (ws->e[k] - ws->s[k]) * gsl_matrix_get(ws->R, k, k);
+		ws->step[k] = 2.0;
+            }
+        }
+    }
+
+    gsl_blas_dgemv(CblasNoTrans, 1, B, &ws->v_x.vector, 0, clp);
+}
+
+void dplane_iter_g(gsl_vector* clp, const gsl_vector* t, const gsl_matrix* B, void* ws)
+{ dplane_iter(clp, t, B, ws); }

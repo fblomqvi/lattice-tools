@@ -3,7 +3,7 @@
 
    This program is free software: you can redistribute it and/or modify it
    under the terms of the GNU General Public License version 2 as published by
-   the Free Software Foundation. 
+   the Free Software Foundation.
 
    This program is distributed in the hope that it will be useful, but WITHOUT
    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -11,8 +11,8 @@
    more details.
 
    You should have received a copy of the GNU General Public License along with
-   this program. If not, see <http://www.gnu.org/licenses/>.  
-   
+   this program. If not, see <http://www.gnu.org/licenses/>.
+
    Written by Ferdinand Blomqvist. */
 
 #include "dbg.h"
@@ -25,6 +25,7 @@
 
 #define ALG_NAME_BABAI "babai"
 #define ALG_NAME_DPLANE "dplane"
+#define ALG_NAME_DPLANE_ITER "dplane-iter"
 #define ALG_NAME_DPLANE_VANILLA "dplane-vanilla"
 #define ALG_NAME_SPHERE_DP "dplane-pohst"
 #define ALG_NAME_SPHERE_SE "sphere"
@@ -33,6 +34,7 @@
 static const char* alg_names[] = {
     ALG_NAME_BABAI,
     ALG_NAME_DPLANE,
+    ALG_NAME_DPLANE_ITER,
     ALG_NAME_DPLANE_VANILLA,
     ALG_NAME_SPHERE_POHST,
     ALG_NAME_SPHERE_DP,
@@ -62,7 +64,7 @@ error:
     return LT_FAILURE;
 }
 
-int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws, 
+int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws,
                             Algorithm alg, const gsl_matrix* basis)
 {
     int lt_errno;
@@ -91,6 +93,10 @@ int algorithm_get_fp_init_ws(SOLVE_func* f, void** ws,
         case ALG_SPHERE_SE:
             *f = sphere_se_g;
             lt_errno = SDSE_WS_alloc_and_init((SDSE_WS**) ws, basis);
+	    break;
+        case ALG_DPLANE_ITER:
+            *f = dplane_iter_g;
+            lt_errno = SDSE_WS_alloc_and_init((SDSE_WS**) ws, basis);
             break;
         default:
             return LT_FAILURE;
@@ -114,6 +120,7 @@ void algorithm_free_ws(void* ws, Algorithm alg)
             SD_WS_free(ws);
             break;
         case ALG_SPHERE_SE:
+	case ALG_DPLANE_ITER:
             SDSE_WS_free(ws);
             break;
         default:
